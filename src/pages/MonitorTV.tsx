@@ -14,6 +14,7 @@ import { useSettingsStore } from '../store/settingsStore'
 import { useThemeStore } from '../store/themeStore'
 import { useServicesStore } from '../store/servicesStore'
 import { getServiceLabel } from '../lib/serviceTypes'
+import { callAnnounceKey, isFreshCall } from '../lib/callAnnounce'
 import type { QueueTicket } from '../types/queue'
 
 const DUCK_RATIO = 0.3
@@ -40,6 +41,10 @@ export default function MonitorTV() {
   const fetchIdRef = useRef(0)
   const pulseRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [justCalledServiceType, setJustCalledServiceType] = useState<string | null>(null)
+  // Kunci panggilan terakhir yang sudah diumumkan — guard anti-ulang
+  // antara jalur WebSocket dan jalur polling.
+  const lastAnnouncedRef = useRef<string | null>(null)
+  const announceInitRef = useRef(false)
   const [refreshing, setRefreshing] = useState(false)
   const [videoUrls, setVideoUrls] = useState<string[]>([])
   const [videoIndex, setVideoIndex] = useState(0)
@@ -198,6 +203,7 @@ export default function MonitorTV() {
       }))
 
       startCallFlash(payload)
+      lastAnnouncedRef.current = callAnnounceKey(payload)
       announceQueueCall(payload)
       triggerVideoDuck()
       fetchAll()
@@ -205,6 +211,7 @@ export default function MonitorTV() {
     onQueueRecall: (msg) => {
       const payload = msg.payload as QueueTicket
       startCallFlash(payload)
+      lastAnnouncedRef.current = callAnnounceKey(payload)
       announceQueueCall(payload)
       triggerVideoDuck()
     },
@@ -236,6 +243,27 @@ export default function MonitorTV() {
       if (refreshTimer) clearTimeout(refreshTimer)
     }
   }, [fetchAll])
+
+  // Jalur polling: umumkan bila muncul panggilan baru yang belum diumumkan
+  // lewat WebSocket (WS mati, mock mode, atau event terlewat). Beban awal
+  // hanya dicatat tanpa bunyi agar panggilan basi tidak diumumkan.
+  useEffect(() => {
+    if (!announceInitRef.current) {
+      announceInitRef.current = true
+      lastAnnouncedRef.current = callAnnounceKey(activeCall)
+      return
+    }
+    if (!activeCall) return
+    const key = callAnnounceKey(activeCall)
+    if (!key || key === lastAnnouncedRef.current) return
+    lastAnnouncedRef.current = key
+    if (!isFreshCall(activeCall.calledAt, Date.now())) return
+    announceQueueCall(activeCall)
+    // Sengaja: efek samping event-driven (redam video saat pengumuman),
+    // bukan sinkronisasi state-dari-props.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    triggerVideoDuck()
+  }, [activeCall, announceQueueCall, triggerVideoDuck])
 
   return (
     <div className="flex h-screen flex-col bg-white text-gray-900">

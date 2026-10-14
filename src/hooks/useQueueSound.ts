@@ -78,7 +78,12 @@ export function useQueueSound(options?: QueueSoundOptions) {
   const playBellChime = useCallback(() => {
     try {
       const ctx = getAudioContext()
-      if (ctx.state === 'suspended') return
+      if (ctx.state === 'suspended') {
+        // Coba bangunkan (berhasil bila sudah ada gesture; tanpa gesture
+        // tetap suspended tanpa error, panggilan berikut yang akan bunyi).
+        void ctx.resume().catch(() => {})
+        return
+      }
 
       if (!bellBuffer) {
         preloadBell()
