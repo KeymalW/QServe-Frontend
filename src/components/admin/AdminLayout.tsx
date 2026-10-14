@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
+import { useServicesStore } from '../../store/servicesStore'
 import { logout as logoutApi } from '../../services/auth'
 import type { User } from '../../types/auth'
 import { BRANDING } from '../../lib/branding'
@@ -140,10 +141,14 @@ export function AdminLayout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const fetchGeneral = useSettingsStore((state) => state.fetchGeneral)
+  const fetchServices = useServicesStore((state) => state.fetchServices)
 
   useEffect(() => {
     void fetchGeneral()
-  }, [fetchGeneral])
+    // Isi snapshot katalog agar seluruh halaman /admin (dashboard, laporan,
+    // pengaturan) menampilkan nama layanan dari Kelola Layanan.
+    void fetchServices()
+  }, [fetchGeneral, fetchServices])
 
   useEffect(() => {
     if (!sidebarOpen) return

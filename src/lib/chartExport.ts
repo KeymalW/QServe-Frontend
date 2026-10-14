@@ -1,4 +1,5 @@
 import type { WeeklyServiceChartRow } from './weeklyCounterChart'
+import { getServiceLabel } from './serviceTypes'
 
 function escapeCsv(value: string) {
   if (/[",\n]/.test(value)) {
@@ -46,23 +47,21 @@ function todaySuffix() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function downloadWeeklyChartCsv(rows: WeeklyServiceChartRow[]) {
+export function downloadWeeklyChartCsv(rows: WeeklyServiceChartRow[], codes: string[]) {
   downloadTableCsv(
     `diagram-layanan-mingguan-${todaySuffix()}.csv`,
-    ['Hari', 'Pengaduan', 'PB/PD/Migrasi', 'P2TL', 'Total'],
-    rows.map((row) => [row.label, row.pengaduan, row.pb_pd_migrasi, row.p2tl, row.total]),
+    ['Hari', ...codes.map((code) => getServiceLabel(code)), 'Total'],
+    rows.map((row) => [row.label, ...codes.map((code) => (row[code] as number) ?? 0), row.total]),
   )
 }
 
-export async function downloadWeeklyChartExcel(rows: WeeklyServiceChartRow[]) {
+export async function downloadWeeklyChartExcel(rows: WeeklyServiceChartRow[], codes: string[]) {
   await downloadTableExcel(
     `diagram-layanan-mingguan-${todaySuffix()}.xlsx`,
     'Mingguan',
     rows.map((row) => ({
       Hari: row.label,
-      Pengaduan: row.pengaduan,
-      'PB/PD/Migrasi': row.pb_pd_migrasi,
-      P2TL: row.p2tl,
+      ...Object.fromEntries(codes.map((code) => [getServiceLabel(code), (row[code] as number) ?? 0])),
       Total: row.total,
     })),
   )

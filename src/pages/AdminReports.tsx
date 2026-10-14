@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { toast } from 'sonner'
 import { getQueueList } from '../services/queue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
@@ -22,7 +22,8 @@ import {
 import { cn } from '../lib/utils'
 import { getServiceLabel, SERVICE_STATUS_LABELS, STATUS_BADGE_COLOR } from '../lib/serviceTypes'
 import type { QueueStatus, QueueTicket } from '../types/queue'
-import { buildWeeklyCounterChartData, type WeeklyServiceChartRow } from '../lib/weeklyCounterChart'
+import { buildWeeklyCounterChartData } from '../lib/weeklyCounterChart'
+import { useServicesStore } from '../store/servicesStore'
 import { downloadTableCsv, downloadTableExcel } from '../lib/chartExport'
 import { formatDateId, formatDateTimeId } from '../lib/datetime'
 
@@ -81,6 +82,9 @@ export default function AdminReports() {
   const [tickets, setTickets] = useState<QueueTicket[]>([])
   const [loading, setLoading] = useState(true)
   const fetchIdRef = useRef(0)
+  // Berlangganan katalog agar grafik mengikuti Kelola Layanan.
+  const services = useServicesStore((state) => state.services)
+  const catalogCodes = useMemo(() => services.map((service) => service.code), [services])
 
   const fetchData = useCallback(async () => {
     const id = ++fetchIdRef.current
@@ -115,7 +119,9 @@ export default function AdminReports() {
     },
     { total: 0, completed: 0, skipped: 0, active: 0 },
   )
-  const chartRows: WeeklyServiceChartRow[] = buildWeeklyCounterChartData(tickets)
+  const chart = buildWeeklyCounterChartData(tickets, catalogCodes)
+  const chartRows = chart.rows
+  const chartCodes = chart.codes
 
   const applyPreset = (get: typeof rangeThisMonth) => {
     const range = get()
@@ -255,7 +261,7 @@ export default function AdminReports() {
             <Skeleton className="h-[26rem] w-full rounded-xl" />
           ) : (
             <Suspense fallback={<Skeleton className="h-[26rem] w-full rounded-xl" />}>
-              <ServiceSummaryChart rows={chartRows} embedded />
+              <ServiceSummaryChart rows={chartRows} codes={chartCodes} embedded />
             </Suspense>
           )}
         </CardContent>

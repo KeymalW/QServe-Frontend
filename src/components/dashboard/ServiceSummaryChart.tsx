@@ -14,35 +14,34 @@ import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import {
   isWeeklyCounterChartEmpty,
-  WEEKDAY_COLORS,
-  WEEKDAY_LABELS,
   type WeeklyServiceChartRow,
-  type WeeklyServiceKey,
 } from '../../lib/weeklyCounterChart'
 import {
   downloadWeeklyChartCsv,
   downloadWeeklyChartExcel,
 } from '../../lib/chartExport'
-import { SERVICE_TYPE_ORDER } from '../../lib/serviceTypes'
+import { getServiceColor, getServiceLabel } from '../../lib/serviceTypes'
 
 interface ServiceSummaryChartProps {
   rows: WeeklyServiceChartRow[]
+  /** Kode layanan dari katalog — menentukan Bar, legenda, dan export. */
+  codes: string[]
   embedded?: boolean
 }
 
 const chartHeight = 420
 
-function CustomLegend() {
+function CustomLegend({ codes }: { codes: string[] }) {
   return (
     <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-      {SERVICE_TYPE_ORDER.map((key) => (
+      {codes.map((key) => (
         <div key={key} className="flex items-center gap-2">
           <span
             className="size-3 rounded-sm"
-            style={{ backgroundColor: WEEKDAY_COLORS[key] }}
+            style={{ backgroundColor: getServiceColor(key) }}
             aria-hidden="true"
           />
-          <span>{WEEKDAY_LABELS[key]}</span>
+          <span>{getServiceLabel(key)}</span>
         </div>
       ))}
     </div>
@@ -53,32 +52,39 @@ function ChartTooltip({
   active,
   payload,
   label,
+  codes,
 }: {
   active?: boolean
   payload?: Array<{ dataKey?: string; value?: number; color?: string }>
   label?: string
+  codes?: string[]
 }) {
   if (!active || !payload || !payload.length) return null
 
-  const total = payload.reduce((sum, item) => sum + (item.value ?? 0), 0)
+  const allowed = codes ? new Set(codes) : null
+  const items = payload.filter((item) => {
+    const key = item.dataKey
+    return !!key && (!allowed || allowed.has(key))
+  })
+  if (items.length === 0) return null
+
+  const total = items.reduce((sum, item) => sum + (item.value ?? 0), 0)
 
   return (
     <div className="min-w-56 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur">
       <div className="text-sm font-semibold text-foreground">{label}</div>
       <div className="mt-2 space-y-1.5">
-        {payload.map((item) => {
-          const key = item.dataKey as WeeklyServiceKey
-          if (!key || !(key in WEEKDAY_LABELS)) return null
-
+        {items.map((item) => {
+          const key = item.dataKey as string
           return (
             <div key={key} className="flex items-center justify-between gap-4 text-xs">
               <div className="flex items-center gap-2">
                 <span
                   className="size-2.5 rounded-full"
-                  style={{ backgroundColor: item.color ?? WEEKDAY_COLORS[key] }}
+                  style={{ backgroundColor: item.color ?? getServiceColor(key) }}
                   aria-hidden="true"
                 />
-                <span className="text-muted-foreground">{WEEKDAY_LABELS[key]}</span>
+                <span className="text-muted-foreground">{getServiceLabel(key)}</span>
               </div>
               <span className="font-medium tabular-nums text-foreground">{item.value ?? 0}</span>
             </div>
@@ -92,9 +98,10 @@ function ChartTooltip({
   )
 }
 
-export function ServiceSummaryChart({ rows, embedded = false }: ServiceSummaryChartProps) {
+export function ServiceSummaryChart({ rows, codes, embedded = false }: ServiceSummaryChartProps) {
   const chartData = useMemo(() => rows, [rows])
-  const empty = isWeeklyCounterChartEmpty(chartData)
+  const serviceCodes = useMemo(() => codes, [codes])
+  const empty = serviceCodes.length === 0 || isWeeklyCounterChartEmpty(chartData)
 
   const content = empty ? (
     <div className="rounded-lg border border-dashed py-14 text-center text-sm text-muted-foreground">
@@ -123,14 +130,14 @@ export function ServiceSummaryChart({ rows, embedded = false }: ServiceSummaryCh
               width={42}
               domain={[0, 'dataMax']}
             />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend content={<CustomLegend />} verticalAlign="bottom" />
-            {SERVICE_TYPE_ORDER.map((key) => (
+            <Tooltip content={<ChartTooltip codes={serviceCodes} />} />
+            <Legend content={<CustomLegend codes={serviceCodes} />} verticalAlign="bottom" />
+            {serviceCodes.map((key) => (
               <Bar
                 key={key}
                 dataKey={key}
-                name={WEEKDAY_LABELS[key]}
-                fill={WEEKDAY_COLORS[key]}
+                name={getServiceLabel(key)}
+                fill={getServiceColor(key)}
                 radius={[4, 4, 0, 0]}
               />
             ))}
@@ -145,7 +152,7 @@ export function ServiceSummaryChart({ rows, embedded = false }: ServiceSummaryCh
       <Button
         variant="outline"
         size="sm"
-        onClick={() => downloadWeeklyChartCsv(chartData)}
+        onClick={() => downloadWeeklyChartCsv(chartData, serviceCodes)}
         disabled={empty}
       >
         <DownloadIcon />
@@ -154,7 +161,7 @@ export function ServiceSummaryChart({ rows, embedded = false }: ServiceSummaryCh
       <Button
         variant="outline"
         size="sm"
-        onClick={() => void downloadWeeklyChartExcel(chartData)}
+        onClick={() => void downloadWeeklyChartExcel(chartData, serviceCodes)}
         disabled={empty}
       >
         <FileSpreadsheetIcon />

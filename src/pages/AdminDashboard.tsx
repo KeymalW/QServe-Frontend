@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { useEffect, useState, useCallback, useRef, lazy, Suspense, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useQueueStore } from '../store/queueStore'
+import { useServicesStore } from '../store/servicesStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import {
   getQueueList,
@@ -25,7 +26,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '../components/ui/dialog'
-import type { QueueTicket, QueueStats, QueueStatus, ServiceType } from '../types/queue'
+import type { QueueTicket, QueueStats, QueueStatus } from '../types/queue'
 import {
   ActivityIcon,
   BellRingIcon,
@@ -44,10 +45,10 @@ import {
   VideoIcon,
   Volume2Icon,
 } from 'lucide-react'
-import { getServiceLabel, SERVICE_STATUS_LABELS, STATUS_BADGE_COLOR } from '../lib/serviceTypes'
+import { getServiceColor, getServiceLabel, SERVICE_STATUS_LABELS, STATUS_BADGE_COLOR, buildCounterCards } from '../lib/serviceTypes'
 import type { VideoData } from '../services/settings'
 import { getMonitorVideos, uploadMonitorVideo, deleteMonitorVideo, getServerVideoVolume, setServerVideoVolume } from '../services/settings'
-import { buildWeeklyCounterChartData, WEEKDAY_COLORS, type WeeklyServiceChartRow } from '../lib/weeklyCounterChart'
+import { buildWeeklyCounterChartData, type WeeklyServiceChartRow } from '../lib/weeklyCounterChart'
 import { formatDateId, formatDateTimeId, formatTimeId, getWeekRangeLabel } from '../lib/datetime'
 
 const ServiceSummaryChart = lazy(() =>
@@ -55,12 +56,6 @@ const ServiceSummaryChart = lazy(() =>
     default: module.ServiceSummaryChart,
   })),
 )
-
-const COUNTER_SERVICE_MAP: Record<number, ServiceType> = {
-  1: 'pengaduan',
-  2: 'pb_pd_migrasi',
-  3: 'p2tl',
-}
 
 function QueueStatusBadge({ status }: { status: QueueStatus }) {
   return <Badge className={STATUS_BADGE_COLOR[status]}>{SERVICE_STATUS_LABELS[status]}</Badge>
@@ -89,15 +84,20 @@ function sortRecentCompleted(tickets: QueueTicket[]) {
 
 export default function AdminDashboard() {
   const { stats, setStats, counterStatus } = useQueueStore()
+  const services = useServicesStore((state) => state.services)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [waitingQueue, setWaitingQueue] = useState<QueueTicket[]>([])
   const [recentCompleted, setRecentCompleted] = useState<QueueTicket[]>([])
-  const [counters, setCounters] = useState<(QueueTicket | null)[]>([null, null, null])
+  const [counters, setCounters] = useState<Record<number, QueueTicket | null>>({})
   const [serviceSummary, setServiceSummary] = useState<WeeklyServiceChartRow[]>([])
+  const [serviceCodes, setServiceCodes] = useState<string[]>([])
   const [showServiceSummary, setShowServiceSummary] = useState(false)
   const [now, setNow] = useState(new Date())
   const fetchIdRef = useRef(0)
+
+  // Kartu loket mengikuti katalog Kelola Layanan (bukan peta hardcode).
+  const counterCards = useMemo(() => buildCounterCards(services), [services])
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -107,21 +107,30 @@ export default function AdminDashboard() {
   const fetchData = useCallback(async () => {
     const id = ++fetchIdRef.current
     try {
-      const [list, statsData, completed, allTickets, c1, c2, c3] = await Promise.all([
+      const catalog = useServicesStore.getState().services
+      const cards = buildCounterCards(catalog)
+      const [list, statsData, completed, allTickets, ...calledList] = await Promise.all([
         getQueueList({ status: 'waiting' }),
         getQueueStats(),
         getQueueList({ status: 'completed', perPage: 20 }),
         getQueueList({ perPage: 1000 }),
-        getLastCalled(1),
-        getLastCalled(2),
-        getLastCalled(3),
+        ...cards.map((card) => getLastCalled(card.num)),
       ])
       if (id !== fetchIdRef.current) return
       setWaitingQueue(list)
       setStats(statsData)
       setRecentCompleted(sortRecentCompleted(completed))
-      setCounters([c1, c2, c3])
-      setServiceSummary(buildWeeklyCounterChartData(allTickets))
+      const nextCounters: Record<number, QueueTicket | null> = {}
+      cards.forEach((card, index) => {
+        nextCounters[card.num] = calledList[index] ?? null
+      })
+      setCounters(nextCounters)
+      const chart = buildWeeklyCounterChartData(
+        allTickets,
+        catalog.map((service) => service.code),
+      )
+      setServiceSummary(chart.rows)
+      setServiceCodes(chart.codes)
     } catch {
       if (import.meta.env.DEV) console.error('Failed to fetch data')
       toast.error('Gagal memuat data dashboard')
@@ -139,9 +148,11 @@ export default function AdminDashboard() {
   })
 
   useEffect(() => {
+    // Dijalankan ulang saat katalog berubah agar kartu loket dan grafik
+    // langsung mengikuti Kelola Layanan.
     const timer = window.setTimeout(() => void fetchData(), 0)
     return () => window.clearTimeout(timer)
-  }, [fetchData])
+  }, [fetchData, services])
 
   const handleClearHistory = async () => {
     setActionLoading('clear-history')
@@ -277,20 +288,20 @@ export default function AdminDashboard() {
           {/* Status loket */}
           <section aria-label="Status loket">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {Object.entries(COUNTER_SERVICE_MAP).map(([numStr, serviceType]) => {
-                const num = Number(numStr)
-                const active = counters[num - 1]
-                const isPaused = counterStatus[num] ?? false
+              {counterCards.map((card) => {
+                const active = counters[card.num] ?? null
+                const isPaused = counterStatus[card.num] ?? false
+                const dotColor = card.code ? getServiceColor(card.code) : '#64748B'
                 return (
-                  <Card key={num}>
+                  <Card key={card.num}>
                     <CardHeader className="pb-0">
                       <CardTitle className="flex items-center gap-2 text-sm font-medium">
                         <span
                           className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: WEEKDAY_COLORS[serviceType] }}
+                          style={{ backgroundColor: dotColor }}
                           aria-hidden="true"
                         />
-                        <span className="truncate">{getServiceLabel(serviceType)}</span>
+                        <span className="truncate">{card.name}</span>
                         {isPaused && (
                           <Badge className="ml-auto bg-amber-50 text-amber-700 ring-1 ring-amber-200">
                             Istirahat
@@ -412,7 +423,7 @@ export default function AdminDashboard() {
                   <ChartSkeleton />
                 ) : (
                   <Suspense fallback={<ChartSkeleton />}>
-                    <ServiceSummaryChart rows={serviceSummary} embedded />
+                    <ServiceSummaryChart rows={serviceSummary} codes={serviceCodes} embedded />
                   </Suspense>
                 )}
               </CardContent>

@@ -40,6 +40,44 @@ export const SERVICE_GROUP_LABELS: Record<ServiceGroup, string> = {
   group_b: 'P2TL',
 }
 
+const LEGACY_SERVICE_COLORS: Record<string, string> = {
+  pengaduan: '#2563EB',
+  pb_pd_migrasi: '#F59E0B',
+  p2tl: '#16A34A',
+}
+
+/** Palet fallback deterministik untuk kode layanan di luar 3 bawaan. */
+const FALLBACK_COLOR_PALETTE = [
+  '#8B5CF6',
+  '#EC4899',
+  '#14B8A6',
+  '#F97316',
+  '#84CC16',
+  '#06B6D4',
+  '#EF4444',
+  '#6366F1',
+] as const
+
+function hashString(value: string): number {
+  let hash = 0
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash
+}
+
+/**
+ * Warna grafik per kode layanan. Kode bawaan memakai warna tetap agar
+ * konsisten; kode baru mendapat warna deterministik dari palet fallback.
+ */
+export function getServiceColor(serviceType: string): string {
+  const normalized = normalizeServiceKey(serviceType)
+  return (
+    LEGACY_SERVICE_COLORS[normalized] ??
+    FALLBACK_COLOR_PALETTE[hashString(normalized) % FALLBACK_COLOR_PALETTE.length]
+  )
+}
+
 export function getServiceGroup(serviceType: string): ServiceGroup {
   return dynamicServicesByCode[serviceType]?.serviceGroup ?? SERVICE_GROUP_MAP[serviceType as ServiceType] ?? 'group_a'
 }
@@ -89,8 +127,44 @@ export function getServiceSortScore(serviceType: string) {
   return { group: 1, order: 0, label: getServiceLabel(serviceType) }
 }
 
-export const SERVICE_STATUS_LABELS: Record<QueueStatus, string> = {
-  waiting: 'Menunggu',
+/** Bentuk minimal layanan katalog untuk derivasi kartu loket. */
+export interface CounterServiceLike {
+  code: string
+  name: string
+  counterNumber: number | null
+  isActive: boolean
+}
+
+export interface CounterCard {
+  num: number
+  code: string | null
+  name: string
+}
+
+/**
+ * Kartu loket dari katalog Kelola Layanan: satu kartu per nomor loket yang
+ * memiliki layanan aktif, urut nomor loket. Bila katalog kosong, fallback ke
+ * 3 loket generik agar tampilan tidak kosong.
+ */
+export function buildCounterCards(services: CounterServiceLike[]): CounterCard[] {
+  const byCounter = new Map<number, CounterCard>()
+  for (const service of services) {
+    if (service.counterNumber == null || !service.isActive) continue
+    if (!byCounter.has(service.counterNumber)) {
+      byCounter.set(service.counterNumber, {
+        num: service.counterNumber,
+        code: service.code,
+        name: service.name,
+      })
+    }
+  }
+  if (byCounter.size === 0) {
+    return [1, 2, 3].map((num) => ({ num, code: null, name: `Loket ${num}` }))
+  }
+  return [...byCounter.values()].sort((a, b) => a.num - b.num)
+}
+
+export const SERVICE_STATUS_LABELS: Record<QueueStatus, string> = {  waiting: 'Menunggu',
   called: 'Dipanggil',
   serving: 'Dilayani',
   completed: 'Selesai',

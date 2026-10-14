@@ -190,6 +190,7 @@ export default function PetugasDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [recentCompleted, setRecentCompleted] = useState<QueueTicket[]>([])
   const [serviceSummary, setServiceSummary] = useState<WeeklyServiceChartRow[]>([])
+  const [serviceCodes, setServiceCodes] = useState<string[]>([])
   const [showServiceSummary, setShowServiceSummary] = useState(false)
   const [now, setNow] = useState(new Date())
 
@@ -254,7 +255,12 @@ export default function PetugasDashboard() {
       setActiveByService(nextMap)
 
       setRecentCompleted(sortRecentCompleted(completed))
-      setServiceSummary(buildWeeklyCounterChartData(allTickets))
+      const chart = buildWeeklyCounterChartData(
+        allTickets,
+        useServicesStore.getState().services.map((service) => service.code),
+      )
+      setServiceSummary(chart.rows)
+      setServiceCodes(chart.codes)
     } catch {
       if (import.meta.env.DEV) console.error('Failed to fetch queue data')
       toast.error('Gagal memuat data antrian')
@@ -283,6 +289,7 @@ export default function PetugasDashboard() {
     onServicesUpdate: () => {
       // Tab layanan baru/berubah langsung muncul tanpa refresh.
       void fetchServices()
+      void fetchData()
     },
     onStatsUpdate: (msg) => {
       setStats(msg.payload as QueueStats)
@@ -682,7 +689,7 @@ export default function PetugasDashboard() {
                   <ChartSkeleton />
                 ) : (
                   <Suspense fallback={<ChartSkeleton />}>
-                    <ServiceSummaryChart rows={serviceSummary} embedded />
+                    <ServiceSummaryChart rows={serviceSummary} codes={serviceCodes} embedded />
                   </Suspense>
                 )}
               </CardContent>

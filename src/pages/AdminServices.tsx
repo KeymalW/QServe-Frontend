@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { CURATED_KIOSK_ICONS, getKioskIconComponent } from '../lib/kioskIcons'
 import type { ServiceDefinition } from '../types/admin'
+import { useServicesStore } from '../store/servicesStore'
 
 interface ServiceFormState {
   name: string
@@ -146,6 +147,9 @@ export default function AdminServices() {
       }
       setFormOpen(false)
       await fetchData()
+      // Segarkan snapshot global agar dashboard, petugas, dan TV langsung
+      // memakai nama/kode terbaru tanpa reload.
+      await useServicesStore.getState().fetchServices()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan layanan')
     } finally {
@@ -159,6 +163,7 @@ export default function AdminServices() {
       await deleteService(service.id)
       toast.success('Layanan berhasil dihapus')
       await fetchData()
+      await useServicesStore.getState().fetchServices()
     } catch {
       toast.error('Gagal menghapus layanan')
     } finally {

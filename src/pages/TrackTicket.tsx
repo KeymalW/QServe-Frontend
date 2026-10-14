@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getTicketById, getQueueList } from '../services/queue'
 import { getTicketTextSettings, getGeneralSettings } from '../services/settings'
+import { useServicesStore } from '../store/servicesStore'
+import { getServiceLabel } from '../lib/serviceTypes'
 import type { TicketTextSettings } from '../types/admin'
 import {
   Clock,
@@ -43,9 +45,12 @@ export default function TrackTicket() {
     footerMessage: 'Silakan tunggu nomor Anda dipanggil',
   })
   const [institutionName, setInstitutionName] = useState('PT PLN (Persero)')
+  const fetchServices = useServicesStore((state) => state.fetchServices)
 
   useEffect(() => {
     let cancelled = false
+    // Isi snapshot katalog agar nama layanan mengikuti Kelola Layanan.
+    void fetchServices()
     getTicketTextSettings()
       .then((data) => {
         if (!cancelled) setTicketText(data)
@@ -57,7 +62,7 @@ export default function TrackTicket() {
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [])
+  }, [fetchServices])
 
   useEffect(() => {
     if (!id) return
@@ -170,7 +175,7 @@ export default function TrackTicket() {
               </div>
 
               <div className="mb-6 text-sm capitalize text-muted-foreground">
-                Layanan: {ticket.serviceType}
+                Layanan: {getServiceLabel(ticket.serviceType)}
               </div>
 
               {ticket.status === 'waiting' && queuePosition !== null && (
@@ -250,7 +255,7 @@ export default function TrackTicket() {
             <div className="print-service" style={{ fontSize: '11px', marginTop: '2px' }}>{ticketText.subHeaderText}</div>
           )}
           <div className="print-number">{ticket.queueNumber}</div>
-          <div className="print-service">{ticket.serviceType}</div>
+          <div className="print-service">{getServiceLabel(ticket.serviceType)}</div>
           <div className="print-divider" />
           <div className="print-footer">
             <div>{new Date(ticket.createdAt).toLocaleDateString('id-ID')}</div>
