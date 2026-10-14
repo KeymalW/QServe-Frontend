@@ -16,6 +16,9 @@ dist-ssr
 # TypeScript incremental build info
 *.tsbuildinfo
 
+# Local report (identitas pribadi, jangan commit)
+LAPORAN_PKL.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
