@@ -10,6 +10,7 @@ import { getQueueList } from '../services/queue'
 import { logout as logoutApi } from '../services/auth'
 import { getMonitorVideos, getServerVideoVolume, setLocalVideoVolume } from '../services/settings'
 import { VideoPlayer } from '../components/monitor/VideoPlayer'
+import { InstitutionLogo } from '../components/brand/InstitutionLogo'
 import { useSettingsStore } from '../store/settingsStore'
 import { useThemeStore } from '../store/themeStore'
 import { useServicesStore } from '../store/servicesStore'
@@ -299,17 +300,11 @@ export default function MonitorTV() {
       {/* Header */}
       <div className="tv-header-bg group flex items-center justify-between border-b border-white/10 px-8 py-4 shadow-[0_8px_30px_rgb(0,0,0,0.25)] backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          <img
-            key={general?.logoUrl ?? 'default'}
-            src={general?.logoUrl?.trim() || '/assets/Logo QServe.png'}
+          <InstitutionLogo
+            src={general?.logoUrl}
             alt="Logo instansi"
             className="h-12 w-auto max-w-[12rem] object-contain"
-            onError={(e) => {
-              const img = e.currentTarget
-              if (img.dataset.fallback) return
-              img.dataset.fallback = '1'
-              img.src = '/assets/Logo QServe.png'
-            }}
+            placeholderClassName="size-12 bg-white/10 text-white/60 ring-white/20"
           />
           <div>
             <h1 className="text-2xl font-bold tracking-wide text-white">

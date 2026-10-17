@@ -5,7 +5,7 @@ import { LogOutIcon } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { logout as logoutApi } from '../../services/auth'
-import { BRANDING } from '../../lib/branding'
+import { InstitutionLogo } from '../brand/InstitutionLogo'
 import { PageTransition } from '../layout/PageTransition'
 
 export function PetugasLayout() {
@@ -17,7 +17,6 @@ export function PetugasLayout() {
     void fetchGeneral()
   }, [fetchGeneral])
 
-  const logoUrl = general?.logoUrl?.trim() || BRANDING.logos.admin
   const appName = general?.institutionName?.trim()
 
   const handleLogout = async () => {
@@ -39,17 +38,11 @@ export function PetugasLayout() {
           aria-hidden="true"
         />
         <div className="flex min-w-0 items-center gap-3">
-          <img
-            key={logoUrl}
-            src={logoUrl}
+          <InstitutionLogo
+            src={general?.logoUrl}
             alt="Logo instansi"
             className="h-8 w-auto max-w-[8rem] object-contain"
-            onError={(e) => {
-              const img = e.currentTarget
-              if (img.dataset.fallback) return
-              img.dataset.fallback = '1'
-              img.src = BRANDING.logos.admin
-            }}
+            placeholderClassName="size-8"
           />
           {appName && (
             <span className="hidden truncate text-sm font-semibold text-foreground sm:block">

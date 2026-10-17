@@ -17,8 +17,8 @@ import { useSettingsStore } from '../../store/settingsStore'
 import { useServicesStore } from '../../store/servicesStore'
 import { logout as logoutApi } from '../../services/auth'
 import type { User } from '../../types/auth'
-import { BRANDING } from '../../lib/branding'
 import { cn } from '../../lib/utils'
+import { InstitutionLogo } from '../brand/InstitutionLogo'
 import { PageTransition } from '../layout/PageTransition'
 
 const NAV_ITEMS = [
@@ -48,7 +48,6 @@ interface SidebarContentProps {
 
 function SidebarContent({ user, onLogout, onNavigate }: SidebarContentProps) {
   const { general } = useSettingsStore()
-  const logoUrl = general?.logoUrl?.trim() || BRANDING.logos.admin
   const appName = general?.institutionName?.trim()
 
   return (
@@ -57,17 +56,11 @@ function SidebarContent({ user, onLogout, onNavigate }: SidebarContentProps) {
       <div className="theme-primary-bg h-1 shrink-0" aria-hidden="true" />
       {/* Logo + nama instansi — diatur di Pengaturan › Identitas */}
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5">
-        <img
-          key={logoUrl}
-          src={logoUrl}
+        <InstitutionLogo
+          src={general?.logoUrl}
           alt="Logo instansi"
           className="h-9 w-auto max-w-[5.5rem] shrink-0 object-contain"
-          onError={(e) => {
-            const img = e.currentTarget
-            if (img.dataset.fallback) return
-            img.dataset.fallback = '1'
-            img.src = BRANDING.logos.admin
-          }}
+          placeholderClassName="size-9 shrink-0"
         />
         {appName && (
           <span className="min-w-0 truncate text-sm leading-tight font-semibold text-foreground">

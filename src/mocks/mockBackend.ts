@@ -16,12 +16,6 @@ type TicketSeed = Omit<QueueTicket, 'createdAt' | 'calledAt' | 'completedAt'> & 
   completedMinutesAgo?: number | null
 }
 
-const servicePrefix: Record<ServiceType, string> = {
-  pengaduan: 'G',
-  pb_pd_migrasi: 'M',
-  p2tl: 'T',
-}
-
 const mockUsers: Record<string, { user: User; password: string; token: string }> = {
   adminulpsubang: {
     password: 'adminulpsubang',
@@ -416,7 +410,7 @@ function getInitialState() {
       pengaduan: 5,
       pb_pd_migrasi: 3,
       p2tl: 3,
-    } satisfies Record<ServiceType, number>,
+    } satisfies Record<string, number>,
     accounts: accountEntries,
     serviceCatalog: [
       { id: 'svc-pengaduan', name: 'Pengaduan', code: 'pengaduan', prefix: 'G', counterNumber: 1, icon: 'megaphone', serviceGroup: 'group_a', isActive: true, showInKiosk: true },
@@ -488,6 +482,9 @@ function ensureShape<T extends ReturnType<typeof getInitialState>>(state: T): T 
   if (!state.theme) state.theme = initial.theme
   if (!Array.isArray(state.videoLinks)) state.videoLinks = []
   if (typeof state.videoVolume !== 'number') state.videoVolume = initial.videoVolume
+  if (!state.nextSequence || typeof state.nextSequence !== 'object') {
+    state.nextSequence = { ...initial.nextSequence }
+  }
   return state
 }
 
@@ -508,11 +505,18 @@ function getSortedTickets(tickets: QueueTicket[]): QueueTicket[] {
   return [...tickets].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
-function getNextQueueNumber(serviceType: ServiceType): string {
-  const next = mockState.nextSequence[serviceType]
-  mockState.nextSequence[serviceType] += 1
+function getNextQueueNumber(serviceType: string): string {
+  const service = mockState.serviceCatalog.find(
+    (item) => item.code.toLowerCase() === serviceType.toLowerCase(),
+  )
+  // Prefix mengikuti Kelola Layanan; fallback ke huruf pertama kode layanan.
+  const prefix =
+    service?.prefix?.trim().toUpperCase() || serviceType.trim().charAt(0).toUpperCase() || 'A'
+
+  const current = mockState.nextSequence[serviceType] ?? 1
+  mockState.nextSequence[serviceType] = current + 1
   saveState()
-  return `${servicePrefix[serviceType]}-${String(next).padStart(3, '0')}`
+  return `${prefix}-${String(current).padStart(3, '0')}`
 }
 
 function updateTicket(id: string, updater: (ticket: QueueTicket) => QueueTicket): QueueTicket {
@@ -608,6 +612,15 @@ export function mockRegister(payload: {
     tenantId: newTenantId,
   } as unknown as User
   mockState.accounts.push({ user, password })
+
+  // Tenant baru mulai dari identitas bersih (paritas seedTenantSettings backend):
+  // nama perusahaan terisi otomatis, logo & teks kiosk dikosongkan agar diisi admin baru.
+  mockState.generalSettings = { institutionName: companyName, logoUrl: '' }
+  mockState.kioskText = { welcomeText: '', subtitleText: '', hintText: '', footerText: '' }
+  mockState.videoLinks = []
+  mockState.videoVolume = 0.2
+  mockState.nextSequence = {}
+
   saveState()
 
   const token = `mock-${user.id}-token`

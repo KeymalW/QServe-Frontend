@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { InstitutionLogo } from '../brand/InstitutionLogo'
 import { MonitorSmartphoneIcon, RefreshCwIcon } from 'lucide-react'
 
 const EMPTY: KioskTextValues = {
@@ -150,10 +151,11 @@ export function KioskTab() {
             className="flex flex-col items-center rounded-xl px-4 py-6 text-center"
             style={{ background: 'var(--tv-card-solid)' }}
           >
-            <img
-              src={general?.logoUrl?.trim() || '/assets/logo-pln.png'}
+            <InstitutionLogo
+              src={general?.logoUrl}
               alt="Logo"
               className="h-12 w-12 rounded-lg object-contain"
+              placeholderClassName="size-12 rounded-lg bg-white/10 text-white/60 ring-white/20"
             />
             <p className="mt-3 text-xs font-light tracking-wide text-white/90">
               {values.welcomeText || 'Selamat Datang di'}

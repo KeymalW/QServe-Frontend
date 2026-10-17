@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Spinner } from '../components/ui/spinner'
+import { InstitutionLogo } from '../components/brand/InstitutionLogo'
 import type { ServiceType } from '../types/queue'
 
 const DEFAULT_KIOSK_TEXT: KioskTextSettings = {
@@ -225,10 +226,11 @@ export default function Kiosk() {
       {/* ===== Welcome header ===== */}
       <header className="pointer-events-none relative z-10 flex flex-col items-center px-8 pt-14 text-center">
         <div className="relative">
-          <img
-            src={general?.logoUrl?.trim() || '/assets/logo-pln.png'}
+          <InstitutionLogo
+            src={general?.logoUrl}
             alt="Logo instansi"
             className="relative h-24 w-24 object-contain drop-shadow-[0_10px_25px_rgba(3,11,36,0.55)]"
+            placeholderClassName="size-24 rounded-2xl bg-white/10 text-white/60 ring-white/20"
           />
         </div>
 

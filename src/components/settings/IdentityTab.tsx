@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { InstitutionLogo } from '../brand/InstitutionLogo'
 import { Building2Icon, ImageIcon, LinkIcon, RefreshCwIcon, RotateCcwIcon, UploadIcon } from 'lucide-react'
 
 export function IdentityTab() {
   const { general, saveGeneral, setGeneral } = useSettingsStore()
   const [institutionName, setInstitutionName] = useState('')
-  const [logoUrl, setLogoUrl] = useState(BRANDING.logos.admin)
+  const [logoUrl, setLogoUrl] = useState('')
   const [logoInput, setLogoInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -22,10 +23,9 @@ export function IdentityTab() {
     const timer = window.setTimeout(() => {
       if (!general) return
       setInstitutionName(general.institutionName ?? '')
-      if (general.logoUrl) {
-        setLogoUrl(general.logoUrl)
-        setLogoInput(general.logoUrl.startsWith('data:') ? '' : general.logoUrl)
-      }
+      const url = general.logoUrl ?? ''
+      setLogoUrl(url)
+      setLogoInput(url.startsWith('data:') ? '' : url)
     }, 0)
     return () => window.clearTimeout(timer)
   }, [general])
@@ -91,7 +91,12 @@ export function IdentityTab() {
             <Label>Logo</Label>
             <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-muted/30 p-4">
               <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-card ring-1 ring-border">
-                <img src={logoUrl} alt="Preview logo" className="max-h-14 max-w-14 object-contain" />
+                <InstitutionLogo
+                  src={logoUrl}
+                  alt="Preview logo"
+                  className="max-h-14 max-w-14 object-contain"
+                  placeholderClassName="size-14"
+                />
               </div>
               <div className="flex min-w-0 flex-1 flex-wrap gap-2">
                 <Button
@@ -113,12 +118,12 @@ export function IdentityTab() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setLogoUrl(BRANDING.logos.admin)
+                    setLogoUrl('')
                     setLogoInput('')
                   }}
                 >
                   <RotateCcwIcon data-icon="inline-start" />
-                  Kembali ke Default
+                  Kosongkan Logo
                 </Button>
                 <input
                   ref={fileRef}
