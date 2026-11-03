@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useAuthStore } from './authStore'
 import type { QueueTicket, QueueStats } from '../types/queue'
 
 interface QueueState {
@@ -36,3 +37,9 @@ export const useQueueStore = create<QueueState>((set) => ({
       counterStatus: { ...state.counterStatus, [counter]: paused },
     })),
 }))
+
+// Data antrian tidak boleh tersisa dari tenant yang sebelumnya login.
+useAuthStore.subscribe((state, prev) => {
+  if (state.isAuthenticated === prev.isAuthenticated) return
+  useQueueStore.setState({ queueList: [], stats: null, counterStatus: {} })
+})

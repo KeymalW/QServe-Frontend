@@ -56,6 +56,58 @@ describe('mockBackend — identitas tenant baru', () => {
   })
 })
 
+describe('mockBackend — isolasi pengaturan antar tenant', () => {
+  let mock: MockBackend
+
+  beforeEach(async () => {
+    sessionStorage.clear()
+    localStorage.clear()
+    vi.resetModules()
+    mock = await loadMock()
+  })
+
+  it('tidak membawa nama, logo, teks, video, atau tema ke tenant lain', () => {
+    mock.mockUpdateGeneralSettings({ institutionName: 'PT Satu', logoUrl: '/satu.png' })
+    mock.mockUpdateKioskText({ welcomeText: 'Halo Satu' })
+    mock.mockAddVideoLink('https://contoh.com/satu.mp4', 'Video Satu')
+    mock.mockSetVideoVolume(0.4)
+    mock.mockUpdateTheme({ presetId: 'toska', primary: '#0f766e', accent: '#22d3ee' })
+
+    mock.mockRegister({
+      companyName: 'PT Dua',
+      name: 'Admin Dua',
+      username: 'admindua',
+      password: 'secret123',
+      password_confirmation: 'secret123',
+    })
+
+    expect(mock.mockGetGeneralSettings()).toEqual({
+      institutionName: 'PT Dua',
+      logoUrl: '',
+    })
+    expect(mock.mockGetKioskText().welcomeText).toBe('')
+    expect(mock.mockGetVideoLinks()).toEqual([])
+    expect(mock.mockGetVideoVolume()).toBe(0.2)
+    expect(mock.mockGetTheme()).toEqual({
+      presetId: 'pln-blue',
+      primary: '#1d4ed8',
+      accent: '#22d3ee',
+    })
+
+    mock.mockLogin('adminulpsubang', 'adminulpsubang')
+
+    expect(mock.mockGetGeneralSettings()).toEqual({
+      institutionName: 'PT Satu',
+      logoUrl: '/satu.png',
+    })
+    expect(mock.mockGetKioskText().welcomeText).toBe('Halo Satu')
+    expect(mock.mockGetVideoLinks()).toHaveLength(1)
+    expect(mock.mockGetVideoLinks()[0].filename).toBe('Video Satu')
+    expect(mock.mockGetVideoVolume()).toBe(0.4)
+    expect(mock.mockGetTheme().presetId).toBe('toska')
+  })
+})
+
 describe('mockBackend — nomor tiket mengikuti Kelola Layanan', () => {
   let mock: MockBackend
 

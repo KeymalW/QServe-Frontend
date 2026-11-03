@@ -15,6 +15,7 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useServicesStore } from '../../store/servicesStore'
+import { useThemeStore } from '../../store/themeStore'
 import { logout as logoutApi } from '../../services/auth'
 import type { User } from '../../types/auth'
 import { cn } from '../../lib/utils'
@@ -135,13 +136,16 @@ export function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const fetchGeneral = useSettingsStore((state) => state.fetchGeneral)
   const fetchServices = useServicesStore((state) => state.fetchServices)
+  const fetchTheme = useThemeStore((state) => state.fetchTheme)
 
   useEffect(() => {
     void fetchGeneral()
     // Isi snapshot katalog agar seluruh halaman /admin (dashboard, laporan,
     // pengaturan) menampilkan nama layanan dari Kelola Layanan.
     void fetchServices()
-  }, [fetchGeneral, fetchServices])
+    // Ambil tema tenant aktif supaya cache tenant lain tidak ikut tampil.
+    void fetchTheme()
+  }, [fetchGeneral, fetchServices, fetchTheme])
 
   useEffect(() => {
     if (!sidebarOpen) return

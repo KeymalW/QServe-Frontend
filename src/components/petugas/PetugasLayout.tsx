@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { LogOutIcon } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
+import { useThemeStore } from '../../store/themeStore'
 import { logout as logoutApi } from '../../services/auth'
 import { InstitutionLogo } from '../brand/InstitutionLogo'
 import { PageTransition } from '../layout/PageTransition'
@@ -12,10 +13,12 @@ export function PetugasLayout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const { general, fetchGeneral } = useSettingsStore()
+  const fetchTheme = useThemeStore((state) => state.fetchTheme)
 
   useEffect(() => {
     void fetchGeneral()
-  }, [fetchGeneral])
+    void fetchTheme()
+  }, [fetchGeneral, fetchTheme])
 
   const appName = general?.institutionName?.trim()
 

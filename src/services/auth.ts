@@ -3,13 +3,25 @@ import { USE_MOCK_DATA } from '../mocks/mockMode'
 import { mockAdminExists, mockGetProfile, mockLogin, mockLogout, mockRegister } from '../mocks/mockBackend'
 import type { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/auth'
 
+function normalizeLoginResponse(res: LoginResponse): LoginResponse {
+  const rawUser = res.user as User & { tenant_id?: number | null; tenant_slug?: string | null }
+  const user = { ...res.user }
+  if (user.tenantId === null || user.tenantId === undefined) {
+    user.tenantId = res.tenant?.id ?? rawUser.tenant_id ?? null
+  }
+  if (!user.tenantSlug) {
+    user.tenantSlug = res.tenant?.slug ?? rawUser.tenant_slug ?? null
+  }
+  return { ...res, user }
+}
+
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
   if (USE_MOCK_DATA) {
-    return mockLogin(payload.username, payload.password)
+    return normalizeLoginResponse(mockLogin(payload.username, payload.password))
   }
 
   const res = await post<LoginResponse>('/auth/login', payload)
-  return res.data
+  return normalizeLoginResponse(res.data)
 }
 
 export async function logout(): Promise<void> {
@@ -36,7 +48,7 @@ export async function register(payload: RegisterRequest): Promise<LoginResponse>
   }
 
   const res = await post<LoginResponse>('/auth/register', payload)
-  return res.data
+  return normalizeLoginResponse(res.data)
 }
 
 export async function checkAdminExists(): Promise<boolean> {

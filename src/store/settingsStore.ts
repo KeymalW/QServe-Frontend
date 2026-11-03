@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getGeneralSettings, updateGeneralSettings } from '../services/settings'
+import { useAuthStore } from './authStore'
 import type { GeneralSettings } from '../types/admin'
 
 interface SettingsState {
@@ -34,3 +35,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setGeneral: (general) => set({ general }),
 }))
+
+// Jangan biarkan nama/logo tenant sebelumnya terbawa ke sesi tenant lain.
+useAuthStore.subscribe((state, prev) => {
+  if (state.isAuthenticated === prev.isAuthenticated) return
+  useSettingsStore.setState({ general: null, loading: false })
+})

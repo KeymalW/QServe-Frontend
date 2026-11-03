@@ -10,6 +10,33 @@ export interface ThemePreset {
 
 export const THEME_STORAGE_KEY = 'qserve-theme'
 
+function currentTenantKey(): string {
+  try {
+    const raw = localStorage.getItem('user')
+    if (raw) {
+      const parsed = JSON.parse(raw) as {
+        tenantId?: number | null
+        tenant_id?: number | null
+        tenantSlug?: string | null
+        tenant_slug?: string | null
+      }
+      const id =
+        parsed.tenantId ?? parsed.tenant_id ?? parsed.tenantSlug ?? parsed.tenant_slug
+      if (id !== null && id !== undefined && String(id).trim() !== '') {
+        return String(id).trim()
+      }
+    }
+  } catch {
+    /* localStorage tidak tersedia / user bukan JSON valid */
+  }
+  return 'default'
+}
+
+/** Cache tema dipisah per tenant agar tidak bocor antar perusahaan. */
+export function getThemeStorageKey(): string {
+  return `${THEME_STORAGE_KEY}:${currentTenantKey()}`
+}
+
 export const THEME_PRESETS: ThemePreset[] = [
   {
     id: 'pln-blue',
@@ -153,7 +180,7 @@ export function applyThemeToDocument(settings: ThemeSettings): void {
 
 export function readThemeFromStorage(): ThemeSettings | null {
   try {
-    const raw = localStorage.getItem(THEME_STORAGE_KEY)
+    const raw = localStorage.getItem(getThemeStorageKey())
     if (!raw) return null
     const parsed = JSON.parse(raw) as ThemeSettings
     if (!parsed || typeof parsed !== 'object') return null
@@ -169,8 +196,20 @@ export function readThemeFromStorage(): ThemeSettings | null {
 
 export function saveThemeToStorage(settings: ThemeSettings): void {
   try {
-    localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(resolveTheme(settings)))
+    localStorage.setItem(getThemeStorageKey(), JSON.stringify(resolveTheme(settings)))
   } catch {
     /* private mode — abaikan */
   }
+}
+
+/** Kembalikan tampilan ke tema default tanpa menyentuh cache tenant. */
+export function resetThemeToDefault(): void {
+  applyThemeToDocument(DEFAULT_THEME)
+}
+
+/** Terapkan tema cache milik user/tenant yang sedang login (fallback default). */
+export function applyStoredThemeForCurrentUser(): ThemeSettings {
+  const theme = readThemeFromStorage() ?? { ...DEFAULT_THEME }
+  applyThemeToDocument(theme)
+  return theme
 }

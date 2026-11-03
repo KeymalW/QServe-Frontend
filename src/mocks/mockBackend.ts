@@ -400,6 +400,56 @@ const mockTickets: QueueTicket[] = [
   }),
 ]
 
+const DEFAULT_MOCK_THEME: ThemeSettings = {
+  presetId: 'pln-blue',
+  primary: '#1d4ed8',
+  accent: '#22d3ee',
+}
+
+const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
+  institutionName: 'PLN ULP Subang',
+  logoUrl: '/assets/logo-pln.png',
+}
+
+const DEFAULT_TICKET_TEXT: TicketTextSettings = {
+  headerText: 'NOMOR ANTRIAN',
+  subHeaderText: 'Nomor antrian Anda',
+  footerMessage: 'Terima kasih telah mengambil tiket. Silakan menunggu pemanggilan.',
+}
+
+const DEFAULT_KIOSK_TEXT: KioskTextSettings = {
+  welcomeText: 'Selamat Datang di',
+  subtitleText: 'Silakan pilih layanan yang Anda butuhkan',
+  hintText: 'Sentuh layar untuk mencetak tiket',
+  footerText: 'PT PLN (Persero) · ULP Subang',
+}
+
+const DEFAULT_VIDEO_VOLUME = 0.2
+
+type MockVideoLink = { id: string; url: string; title: string }
+
+function currentMockTenantKey(): string {
+  try {
+    const raw = localStorage.getItem('user')
+    if (raw) {
+      const parsed = JSON.parse(raw) as {
+        tenantId?: number | null
+        tenant_id?: number | null
+        tenantSlug?: string | null
+        tenant_slug?: string | null
+      }
+      const id =
+        parsed.tenantId ?? parsed.tenant_id ?? parsed.tenantSlug ?? parsed.tenant_slug
+      if (id !== null && id !== undefined && String(id).trim() !== '') {
+        return String(id).trim()
+      }
+    }
+  } catch {
+    /* user belum login / JSON tidak valid */
+  }
+  return 'default'
+}
+
 function getInitialState() {
   const accountEntries: Array<{ user: User; password: string }> = Object.values(mockUsers)
     .map(({ user, password }) => ({ user: { ...user }, password }))
@@ -417,28 +467,13 @@ function getInitialState() {
       { id: 'svc-pbpd', name: 'PB/PD/Migrasi', code: 'pb_pd_migrasi', prefix: 'M', counterNumber: 2, icon: 'plug-zap', serviceGroup: 'group_a', isActive: true, showInKiosk: true },
       { id: 'svc-p2tl', name: 'P2TL', code: 'p2tl', prefix: 'T', counterNumber: 3, icon: 'wrench', serviceGroup: 'group_b', isActive: true, showInKiosk: true },
     ] satisfies ServiceDefinition[],
-    generalSettings: {
-      institutionName: 'PLN ULP Subang',
-      logoUrl: '/assets/logo-pln.png',
-    } satisfies GeneralSettings,
-    ticketText: {
-      headerText: 'NOMOR ANTRIAN',
-      subHeaderText: 'Nomor antrian Anda',
-      footerMessage: 'Terima kasih telah mengambil tiket. Silakan menunggu pemanggilan.',
-    } satisfies TicketTextSettings,
-    kioskText: {
-      welcomeText: 'Selamat Datang di',
-      subtitleText: 'Silakan pilih layanan yang Anda butuhkan',
-      hintText: 'Sentuh layar untuk mencetak tiket',
-      footerText: 'PT PLN (Persero) · ULP Subang',
-    } satisfies KioskTextSettings,
-    theme: {
-      presetId: 'pln-blue',
-      primary: '#1d4ed8',
-      accent: '#22d3ee',
-    } satisfies ThemeSettings,
-    videoLinks: [] as Array<{ id: string; url: string; title: string }>,
-    videoVolume: 0.2,
+    generalSettingsByTenant: {} as Record<string, GeneralSettings>,
+    ticketTextByTenant: {} as Record<string, TicketTextSettings>,
+    kioskTextByTenant: {} as Record<string, KioskTextSettings>,
+    videoLinksByTenant: {} as Record<string, MockVideoLink[]>,
+    videoVolumeByTenant: {} as Record<string, number>,
+    theme: { ...DEFAULT_MOCK_THEME } satisfies ThemeSettings,
+    themesByTenant: {} as Record<string, ThemeSettings>,
   }
 }
 
@@ -476,12 +511,55 @@ function ensureShape<T extends ReturnType<typeof getInitialState>>(state: T): T 
       serviceGroup: (row.serviceGroup as string | undefined) ?? (legacy?.serviceGroup ?? 'group_a'),
     }
   })
-  if (!state.generalSettings) state.generalSettings = initial.generalSettings
-  if (!state.ticketText) state.ticketText = initial.ticketText
-  if (!state.kioskText) state.kioskText = initial.kioskText
   if (!state.theme) state.theme = initial.theme
-  if (!Array.isArray(state.videoLinks)) state.videoLinks = []
-  if (typeof state.videoVolume !== 'number') state.videoVolume = initial.videoVolume
+  if (!state.themesByTenant || typeof state.themesByTenant !== 'object') {
+    state.themesByTenant = {}
+  }
+
+  const legacy = state as unknown as {
+    generalSettings?: GeneralSettings
+    ticketText?: TicketTextSettings
+    kioskText?: KioskTextSettings
+    videoLinks?: MockVideoLink[]
+    videoVolume?: number
+  }
+
+  if (!state.generalSettingsByTenant || typeof state.generalSettingsByTenant !== 'object') {
+    state.generalSettingsByTenant = {}
+  }
+  if (!state.ticketTextByTenant || typeof state.ticketTextByTenant !== 'object') {
+    state.ticketTextByTenant = {}
+  }
+  if (!state.kioskTextByTenant || typeof state.kioskTextByTenant !== 'object') {
+    state.kioskTextByTenant = {}
+  }
+  if (!state.videoLinksByTenant || typeof state.videoLinksByTenant !== 'object') {
+    state.videoLinksByTenant = {}
+  }
+  if (!state.videoVolumeByTenant || typeof state.videoVolumeByTenant !== 'object') {
+    state.videoVolumeByTenant = {}
+  }
+
+  // Sesi lama menyimpan pengaturan global — pindahkan ke tenant default.
+  if (Object.keys(state.themesByTenant).length === 0) {
+    state.themesByTenant.default = { ...state.theme }
+  }
+  if (Object.keys(state.generalSettingsByTenant).length === 0) {
+    state.generalSettingsByTenant.default = legacy.generalSettings ?? { ...DEFAULT_GENERAL_SETTINGS }
+  }
+  if (Object.keys(state.ticketTextByTenant).length === 0) {
+    state.ticketTextByTenant.default = legacy.ticketText ?? { ...DEFAULT_TICKET_TEXT }
+  }
+  if (Object.keys(state.kioskTextByTenant).length === 0) {
+    state.kioskTextByTenant.default = legacy.kioskText ?? { ...DEFAULT_KIOSK_TEXT }
+  }
+  if (Object.keys(state.videoLinksByTenant).length === 0) {
+    state.videoLinksByTenant.default = Array.isArray(legacy.videoLinks) ? legacy.videoLinks : []
+  }
+  if (Object.keys(state.videoVolumeByTenant).length === 0) {
+    state.videoVolumeByTenant.default =
+      typeof legacy.videoVolume === 'number' ? legacy.videoVolume : DEFAULT_VIDEO_VOLUME
+  }
   if (!state.nextSequence || typeof state.nextSequence !== 'object') {
     state.nextSequence = { ...initial.nextSequence }
   }
@@ -491,7 +569,13 @@ function ensureShape<T extends ReturnType<typeof getInitialState>>(state: T): T 
 const mockState = ensureShape(loadState())
 
 /* Video hasil upload disimpan in-memory saja (object URL hilang saat reload). */
-const uploadedVideos: Array<{ id: string; filename: string; url: string }> = []
+const uploadedVideosByTenant: Record<string, Array<{ id: string; filename: string; url: string }>> = {}
+
+function tenantUploadedVideos(): Array<{ id: string; filename: string; url: string }> {
+  const key = currentMockTenantKey()
+  uploadedVideosByTenant[key] ??= []
+  return uploadedVideosByTenant[key]
+}
 
 function saveState() {
   persistState(mockState)
@@ -615,11 +699,20 @@ export function mockRegister(payload: {
 
   // Tenant baru mulai dari identitas bersih (paritas seedTenantSettings backend):
   // nama perusahaan terisi otomatis, logo & teks kiosk dikosongkan agar diisi admin baru.
-  mockState.generalSettings = { institutionName: companyName, logoUrl: '' }
-  mockState.kioskText = { welcomeText: '', subtitleText: '', hintText: '', footerText: '' }
-  mockState.videoLinks = []
-  mockState.videoVolume = 0.2
+  const tenantKey = String(newTenantId)
+  mockState.generalSettingsByTenant[tenantKey] = { institutionName: companyName, logoUrl: '' }
+  mockState.ticketTextByTenant[tenantKey] = { ...DEFAULT_TICKET_TEXT }
+  mockState.kioskTextByTenant[tenantKey] = {
+    welcomeText: '',
+    subtitleText: '',
+    hintText: '',
+    footerText: '',
+  }
+  mockState.videoLinksByTenant[tenantKey] = []
+  mockState.videoVolumeByTenant[tenantKey] = DEFAULT_VIDEO_VOLUME
+  mockState.themesByTenant[tenantKey] = { ...DEFAULT_MOCK_THEME }
   mockState.nextSequence = {}
+  uploadedVideosByTenant[tenantKey] = []
 
   saveState()
 
@@ -982,47 +1075,60 @@ export function mockDeleteService(id: string): void {
 /* ============================ PENGATURAN ========================== */
 
 export function mockGetGeneralSettings(): GeneralSettings {
-  return { ...mockState.generalSettings }
+  const key = currentMockTenantKey()
+  return { ...(mockState.generalSettingsByTenant[key] ?? DEFAULT_GENERAL_SETTINGS) }
 }
 
 export function mockUpdateGeneralSettings(patch: Partial<GeneralSettings>): GeneralSettings {
-  mockState.generalSettings = { ...mockState.generalSettings, ...patch }
+  const key = currentMockTenantKey()
+  const next: GeneralSettings = { ...mockGetGeneralSettings(), ...patch }
+  mockState.generalSettingsByTenant[key] = next
   saveState()
-  return { ...mockState.generalSettings }
+  return { ...next }
 }
 
 export function mockGetTicketText(): TicketTextSettings {
-  return { ...mockState.ticketText }
+  const key = currentMockTenantKey()
+  return { ...(mockState.ticketTextByTenant[key] ?? DEFAULT_TICKET_TEXT) }
 }
 
 export function mockUpdateTicketText(patch: Partial<TicketTextSettings>): TicketTextSettings {
-  mockState.ticketText = { ...mockState.ticketText, ...patch }
+  const key = currentMockTenantKey()
+  const next: TicketTextSettings = { ...mockGetTicketText(), ...patch }
+  mockState.ticketTextByTenant[key] = next
   saveState()
-  return { ...mockState.ticketText }
+  return { ...next }
 }
 
 /* ============================ TEKS KIOSK ========================== */
 
 export function mockGetKioskText(): KioskTextSettings {
-  return { ...mockState.kioskText }
+  const key = currentMockTenantKey()
+  return { ...(mockState.kioskTextByTenant[key] ?? DEFAULT_KIOSK_TEXT) }
 }
 
 export function mockUpdateKioskText(patch: Partial<KioskTextSettings>): KioskTextSettings {
-  mockState.kioskText = { ...mockState.kioskText, ...patch }
+  const key = currentMockTenantKey()
+  const next: KioskTextSettings = { ...mockGetKioskText(), ...patch }
+  mockState.kioskTextByTenant[key] = next
   saveState()
-  return { ...mockState.kioskText }
+  return { ...next }
 }
 
 /* ============================ TEMA ========================== */
 
 export function mockGetTheme(): ThemeSettings {
-  return { ...(mockState.theme ?? { presetId: 'pln-blue', primary: '#1d4ed8', accent: '#22d3ee' }) }
+  const key = currentMockTenantKey()
+  return { ...(mockState.themesByTenant[key] ?? DEFAULT_MOCK_THEME) }
 }
 
 export function mockUpdateTheme(patch: Partial<ThemeSettings>): ThemeSettings {
-  mockState.theme = { ...mockGetTheme(), ...patch }
+  const key = currentMockTenantKey()
+  const next: ThemeSettings = { ...mockGetTheme(), ...patch }
+  mockState.themesByTenant[key] = next
+  mockState.theme = next
   saveState()
-  return { ...mockState.theme }
+  return { ...next }
 }
 
 /* =========================== MEDIA TV ============================= */
@@ -1039,25 +1145,36 @@ export function mockAddVideoLink(url: string, title: string): {
     url: url.trim(),
     title: title.trim() || url.trim(),
   }
-  mockState.videoLinks.push(link)
+  const key = currentMockTenantKey()
+  mockState.videoLinksByTenant[key] ??= []
+  mockState.videoLinksByTenant[key].push(link)
   saveState()
   return { ...link }
 }
 
 export function mockDeleteVideoLink(id: string): void {
-  const index = mockState.videoLinks.findIndex((link) => link.id === id)
+  const key = currentMockTenantKey()
+  const links = mockState.videoLinksByTenant[key]
+  if (!links) return
+  const index = links.findIndex((link) => link.id === id)
   if (index >= 0) {
-    mockState.videoLinks.splice(index, 1)
+    links.splice(index, 1)
     saveState()
   }
 }
 
 export function mockGetMonitorVideos(): Array<{ id?: string; url: string; filename: string }> {
-  return uploadedVideos.map((video) => ({ id: video.id, url: video.url, filename: video.filename }))
+  return tenantUploadedVideos().map((video) => ({
+    id: video.id,
+    url: video.url,
+    filename: video.filename,
+  }))
 }
 
 export function mockGetVideoLinks(): Array<{ id: string; url: string; filename: string }> {
-  return mockState.videoLinks.map((link) => ({ id: link.id, url: link.url, filename: link.title }))
+  const key = currentMockTenantKey()
+  const links = mockState.videoLinksByTenant[key] ?? []
+  return links.map((link) => ({ id: link.id, url: link.url, filename: link.title }))
 }
 
 export function mockUploadMonitorVideo(file: File): { url: string; filename: string } {
@@ -1066,22 +1183,24 @@ export function mockUploadMonitorVideo(file: File): { url: string; filename: str
     filename: file.name,
     url: URL.createObjectURL(file),
   }
-  uploadedVideos.push(entry)
+  tenantUploadedVideos().push(entry)
   return { url: entry.url, filename: entry.filename }
 }
 
 export function mockDeleteMonitorVideo(filename: string): void {
-  const uploadIndex = uploadedVideos.findIndex((video) => video.filename === filename)
+  const videos = tenantUploadedVideos()
+  const uploadIndex = videos.findIndex((video) => video.filename === filename)
   if (uploadIndex >= 0) {
-    uploadedVideos.splice(uploadIndex, 1)
+    videos.splice(uploadIndex, 1)
   }
 }
 
 export function mockGetVideoVolume(): number {
-  return mockState.videoVolume
+  const key = currentMockTenantKey()
+  return mockState.videoVolumeByTenant[key] ?? DEFAULT_VIDEO_VOLUME
 }
 
 export function mockSetVideoVolume(volume: number): void {
-  mockState.videoVolume = volume
+  mockState.videoVolumeByTenant[currentMockTenantKey()] = volume
   saveState()
 }

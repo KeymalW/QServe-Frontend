@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { getServices } from '../services/serviceCatalog'
 import { setDynamicServices } from '../lib/serviceTypes'
+import { useAuthStore } from './authStore'
 import type { ServiceDefinition } from '../types/admin'
 
 /** Cadangan bila backend gagal dijangkau — meniru 3 layanan bawaan. */
@@ -37,3 +38,10 @@ export const useServicesStore = create<ServicesState>((set) => ({
     }
   },
 }))
+
+// Katalog layanan juga milik tenant — jangan bawa label tenant lama.
+useAuthStore.subscribe((state, prev) => {
+  if (state.isAuthenticated === prev.isAuthenticated) return
+  setDynamicServices([])
+  useServicesStore.setState({ services: FALLBACK_SERVICES, loaded: false })
+})

@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { getThemeSettings, updateThemeSettings } from '../services/settings'
-import { applyThemeToDocument, DEFAULT_THEME, readThemeFromStorage } from '../lib/theme'
+import {
+  applyStoredThemeForCurrentUser,
+  applyThemeToDocument,
+  DEFAULT_THEME,
+  readThemeFromStorage,
+  resetThemeToDefault,
+} from '../lib/theme'
+import { useAuthStore } from './authStore'
 import type { ThemeSettings } from '../types/admin'
 
 interface ThemeState {
@@ -58,3 +65,15 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     applyThemeToDocument(merged)
   },
 }))
+
+// Login/logout mengganti tenant: pakai cache tenant baru, dan reset saat logout
+// agar browser bersama tidak menampilkan tema tenant sebelumnya.
+useAuthStore.subscribe((state, prev) => {
+  if (state.isAuthenticated === prev.isAuthenticated) return
+  if (state.isAuthenticated) {
+    useThemeStore.setState({ theme: applyStoredThemeForCurrentUser() })
+  } else {
+    resetThemeToDefault()
+    useThemeStore.setState({ theme: { ...DEFAULT_THEME } })
+  }
+})
