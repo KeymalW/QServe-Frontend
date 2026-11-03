@@ -8,7 +8,13 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 px-5 py-4 shadow-sm">
+    <div
+      className="relative overflow-hidden rounded-xl px-5 py-4 shadow-sm"
+      style={{
+        backgroundImage:
+          'linear-gradient(90deg, var(--theme-primary-dark), var(--theme-primary))',
+      }}
+    >
       <div
         className="pointer-events-none absolute -top-12 -right-10 size-40 rounded-full bg-white/10"
         aria-hidden="true"
@@ -21,11 +27,11 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
           {description && (
-            <p className="mt-1 text-sm text-blue-100">{description}</p>
+            <p className="mt-1 text-sm text-white/80">{description}</p>
           )}
         </div>
         {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 [&_[data-variant=default]]:bg-white [&_[data-variant=default]]:text-blue-700 [&_[data-variant=default]]:hover:bg-blue-50 [&_[data-variant=ghost]]:text-white [&_[data-variant=ghost]]:hover:bg-white/15 [&_[data-variant=ghost]]:hover:text-white">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 [&_[data-variant=default]]:bg-white [&_[data-variant=default]]:text-[var(--theme-primary-dark)] [&_[data-variant=default]]:hover:bg-white/90 [&_[data-variant=ghost]]:text-white [&_[data-variant=ghost]]:hover:bg-white/15 [&_[data-variant=ghost]]:hover:text-white">
             {actions}
           </div>
         )}
