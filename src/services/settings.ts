@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import api from './api'
 import { get, post, put, del } from './api'
 import { USE_MOCK_DATA } from '../mocks/mockMode'
@@ -16,6 +17,58 @@ export interface VideoVolumeData {
 }
 
 const VOLUME_LOCAL_KEY = 'monitor-video-volume'
+
+export const MAX_VIDEO_SIZE = 200 * 1024 * 1024
+export const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000
+
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi', 'wmv', 'webm']
+
+export type UploadProgressHandler = (percent: number) => void
+
+interface ApiErrorBody {
+  message?: string
+  errors?: Record<string, string[]>
+}
+
+export function extractApiErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError<ApiErrorBody>(error)) {
+    const data = error.response?.data
+    const firstValidationError = data?.errors
+      ? Object.values(data.errors).flat().find(Boolean)
+      : undefined
+
+    if (firstValidationError) return firstValidationError
+    if (data?.message) return data.message
+
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return 'Upload terlalu lama dan terputus. Coba lagi atau gunakan file yang lebih kecil.'
+    }
+    if (!error.response) {
+      return 'Tidak dapat terhubung ke server. Periksa koneksi lalu coba lagi.'
+    }
+
+    switch (error.response.status) {
+      case 401:
+        return 'Sesi kamu berakhir. Silakan login ulang.'
+      case 403:
+        return 'Kamu tidak punya izin mengupload video.'
+      case 413:
+        return 'File terlalu besar untuk server. Naikkan batas upload server atau pilih file lebih kecil.'
+      case 422:
+        return 'File video tidak valid atau formatnya tidak didukung.'
+      default:
+        return `Upload gagal (HTTP ${error.response.status}).`
+    }
+  }
+
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
+
+function hasSupportedVideoExtension(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  return VIDEO_EXTENSIONS.includes(ext)
+}
 
 export function getLocalVideoVolume(): number {
   try {
@@ -71,9 +124,20 @@ export async function getMonitorVideos(): Promise<VideoData[]> {
   return res.data ?? []
 }
 
-export async function uploadMonitorVideo(file: File): Promise<VideoData> {
+export async function uploadMonitorVideo(
+  file: File,
+  onProgress?: UploadProgressHandler,
+): Promise<VideoData> {
+  if (!hasSupportedVideoExtension(file.name)) {
+    throw new Error('Format video tidak didukung. Gunakan MP4, MOV, AVI, WMV, atau WEBM.')
+  }
+  if (file.size > MAX_VIDEO_SIZE) {
+    throw new Error('Ukuran video maksimal 200MB. Pilih file yang lebih kecil.')
+  }
+
   if (USE_MOCK_DATA) {
     const { mockUploadMonitorVideo } = await import('../mocks/mockBackend')
+    onProgress?.(100)
     return mockUploadMonitorVideo(file)
   }
 
@@ -82,6 +146,13 @@ export async function uploadMonitorVideo(file: File): Promise<VideoData> {
 
   const { data } = await api.post('/settings/videos', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: UPLOAD_TIMEOUT_MS,
+    onUploadProgress: (event) => {
+      if (!onProgress) return
+      const total = event.total ?? file.size
+      const percent = total > 0 ? Math.round((event.loaded / total) * 100) : 0
+      onProgress(Math.min(100, Math.max(0, percent)))
+    },
   })
 
   if (!data.success) {

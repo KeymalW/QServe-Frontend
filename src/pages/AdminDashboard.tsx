@@ -47,7 +47,16 @@ import {
 } from 'lucide-react'
 import { getServiceColor, getServiceLabel, SERVICE_STATUS_LABELS, STATUS_BADGE_COLOR, buildCounterCards } from '../lib/serviceTypes'
 import type { VideoData } from '../services/settings'
-import { getMonitorVideos, uploadMonitorVideo, deleteMonitorVideo, getServerVideoVolume, setServerVideoVolume } from '../services/settings'
+import {
+  getMonitorVideos,
+  getVideoLinks,
+  uploadMonitorVideo,
+  deleteAnyVideo,
+  getServerVideoVolume,
+  setServerVideoVolume,
+  extractApiErrorMessage,
+} from '../services/settings'
+import { buildYouTubeEmbedUrl, getVideoKind } from '../lib/videoSource'
 import { buildWeeklyCounterChartData, type WeeklyServiceChartRow } from '../lib/weeklyCounterChart'
 import { formatDateId, formatDateTimeId, formatTimeId, getWeekRangeLabel } from '../lib/datetime'
 
@@ -178,8 +187,11 @@ export default function AdminDashboard() {
   const fetchVideos = useCallback(async () => {
     setVideoLoading(true)
     try {
-      const data = await getMonitorVideos()
-      setVideos(data)
+      const [uploads, links] = await Promise.all([getMonitorVideos(), getVideoLinks()])
+      setVideos([
+        ...uploads.map((video) => ({ ...video, source: 'upload' as const })),
+        ...links.map((video) => ({ ...video, source: 'link' as const })),
+      ])
     } catch {
       setVideos([])
     } finally {
@@ -190,16 +202,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     let cancelled = false
 
-    getMonitorVideos()
-      .then((data) => {
-        if (!cancelled) setVideos(data)
-      })
-      .catch(() => {
-        if (!cancelled) setVideos([])
-      })
-      .finally(() => {
-        if (!cancelled) setVideoLoading(false)
-      })
+    const timer = window.setTimeout(() => {
+      if (!cancelled) void fetchVideos()
+    }, 0)
 
     getServerVideoVolume().then((v) => {
       if (!cancelled) setVideoVolume(v)
@@ -207,8 +212,9 @@ export default function AdminDashboard() {
 
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
     }
-  }, [])
+  }, [fetchVideos])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -219,22 +225,23 @@ export default function AdminDashboard() {
       await uploadMonitorVideo(file)
       await fetchVideos()
       toast.success('Video berhasil diupload')
-    } catch {
-      toast.error('Gagal mengupload video')
+    } catch (err) {
+      toast.error(extractApiErrorMessage(err, 'Gagal mengupload video'))
     } finally {
       setVideoUploading(false)
       if (inputRef.current) inputRef.current.value = ''
     }
   }
 
-  const handleDeleteVideo = async (filename: string) => {
-    setDeleting(filename)
+  const handleDeleteVideo = async (video: VideoData) => {
+    const key = video.id ?? video.filename
+    setDeleting(key)
     try {
-      await deleteMonitorVideo(filename)
+      await deleteAnyVideo(video)
       await fetchVideos()
       toast.success('Video berhasil dihapus')
-    } catch {
-      toast.error('Gagal menghapus video')
+    } catch (err) {
+      toast.error(extractApiErrorMessage(err, 'Gagal menghapus video'))
     } finally {
       setDeleting(null)
     }
@@ -625,37 +632,60 @@ export default function AdminDashboard() {
                   <p className="mt-3 text-center text-xs text-muted-foreground">Belum ada video</p>
                 ) : (
                   <div className="mt-3 max-h-[20rem] space-y-2 overflow-y-auto pr-1">
-                    {videos.map((v) => (
-                      <div
-                        key={v.filename}
-                        className="overflow-hidden rounded-xl border border-border bg-card"
-                      >
-                        <video
-                          src={v.url}
-                          className="h-28 w-full bg-black object-cover"
-                          controls
+                    {videos.map((v) => {
+                      const videoKey = v.id ?? v.filename
+                      const isYouTube = getVideoKind(v.url) === 'youtube'
+                      return (
+                        <div
+                          key={videoKey}
+                          className="overflow-hidden rounded-xl border border-border bg-card"
                         >
-                          Browser tidak mendukung video.
-                        </video>
-                        <div className="flex items-center justify-between gap-2 px-3 py-2">
-                          <span className="truncate text-xs text-muted-foreground">{v.filename}</span>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`Hapus ${v.filename}`}
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => handleDeleteVideo(v.filename)}
-                            disabled={deleting === v.filename}
-                          >
-                            {deleting === v.filename ? (
-                              <RefreshCwIcon className="animate-spin" />
-                            ) : (
-                              <Trash2Icon />
-                            )}
-                          </Button>
+                          {isYouTube ? (
+                            <iframe
+                              src={
+                                buildYouTubeEmbedUrl(v.url, { muted: true, loop: true }) ?? undefined
+                              }
+                              title={v.filename}
+                              className="h-28 w-full bg-black"
+                              allow="autoplay; encrypted-media; picture-in-picture"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video
+                              src={v.url}
+                              className="h-28 w-full bg-black object-cover"
+                              controls
+                            >
+                              Browser tidak mendukung video.
+                            </video>
+                          )}
+                          <div className="flex items-center justify-between gap-2 px-3 py-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="truncate text-xs text-muted-foreground">
+                                {v.filename}
+                              </span>
+                              <Badge variant={v.source === 'link' ? 'secondary' : 'outline'}>
+                                {isYouTube ? 'YouTube' : v.source === 'link' ? 'Link' : 'Upload'}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              aria-label={`Hapus ${v.filename}`}
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteVideo(v)}
+                              disabled={deleting === videoKey}
+                            >
+                              {deleting === videoKey ? (
+                                <RefreshCwIcon className="animate-spin" />
+                              ) : (
+                                <Trash2Icon />
+                              )}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
 

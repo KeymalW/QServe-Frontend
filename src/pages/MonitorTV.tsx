@@ -8,7 +8,12 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { useQueueSound } from '../hooks/useQueueSound'
 import { getQueueList } from '../services/queue'
 import { logout as logoutApi } from '../services/auth'
-import { getMonitorVideos, getServerVideoVolume, setLocalVideoVolume } from '../services/settings'
+import {
+  getMonitorVideos,
+  getVideoLinks,
+  getServerVideoVolume,
+  setLocalVideoVolume,
+} from '../services/settings'
 import { VideoPlayer } from '../components/monitor/VideoPlayer'
 import { InstitutionLogo } from '../components/brand/InstitutionLogo'
 import { useSettingsStore } from '../store/settingsStore'
@@ -138,14 +143,17 @@ export default function MonitorTV() {
 
   const currentSrc = videoUrls[videoIndex]
 
-  const handleVideoEnded = useCallback(() => {
-    setVideoIndex((prev) => (prev + 1) % videoUrls.length)
+  const advanceVideo = useCallback(() => {
+    setVideoIndex((prev) => (videoUrls.length > 0 ? (prev + 1) % videoUrls.length : 0))
   }, [videoUrls.length])
 
   useEffect(() => {
-    getMonitorVideos()
-      .then((list) => {
-        setVideoUrls(list.map((v) => v.url))
+    Promise.allSettled([getMonitorVideos(), getVideoLinks()])
+      .then((results) => {
+        const urls = results.flatMap((result) =>
+          result.status === 'fulfilled' ? result.value.map((video) => video.url) : [],
+        )
+        setVideoUrls(urls)
         setVideoIndex(0)
       })
       .catch(() => setVideoUrls([]))
@@ -388,7 +396,8 @@ export default function MonitorTV() {
             src={currentSrc}
             className="w-full"
             loop={videoUrls.length <= 1}
-            onEnded={handleVideoEnded}
+            onEnded={advanceVideo}
+            onError={advanceVideo}
             muted={videoMuted}
             volume={effectiveVideoVolume}
           />

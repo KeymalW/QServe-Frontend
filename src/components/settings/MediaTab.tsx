@@ -8,8 +8,10 @@ import {
   addVideoLink,
   getServerVideoVolume,
   setServerVideoVolume,
+  extractApiErrorMessage,
 } from '../../services/settings'
 import type { VideoData } from '../../services/settings'
+import { getVideoKind } from '../../lib/videoSource'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -29,6 +31,7 @@ export function MediaTab() {
   const [videos, setVideos] = useState<VideoData[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
   const [addingLink, setAddingLink] = useState(false)
@@ -64,14 +67,16 @@ export function MediaTab() {
     if (!file) return
 
     setUploading(true)
+    setUploadProgress(0)
     try {
-      await uploadMonitorVideo(file)
+      await uploadMonitorVideo(file, (percent) => setUploadProgress(percent))
       await fetchVideos()
       toast.success('Video berhasil diupload')
-    } catch {
-      toast.error('Gagal mengupload video')
+    } catch (err) {
+      toast.error(extractApiErrorMessage(err, 'Gagal mengupload video'))
     } finally {
       setUploading(false)
+      setUploadProgress(0)
       if (inputRef.current) inputRef.current.value = ''
     }
   }
@@ -88,7 +93,7 @@ export function MediaTab() {
       await fetchVideos()
       toast.success('Link video berhasil ditambahkan')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Gagal menambahkan link video')
+      toast.error(extractApiErrorMessage(err, 'Gagal menambahkan link video'))
     } finally {
       setAddingLink(false)
     }
@@ -127,9 +132,17 @@ export function MediaTab() {
           >
             <UploadIcon className="size-6" aria-hidden="true" />
             <span className="font-medium">
-              {uploading ? 'Mengupload…' : 'Klik untuk upload video baru'}
+              {uploading ? `Mengupload… ${uploadProgress}%` : 'Klik untuk upload video baru'}
             </span>
             <span className="text-[11px]">MP4, MOV, AVI, WMV, WEBM — maks 200MB</span>
+            {uploading && (
+              <span className="mt-1 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-border">
+                <span
+                  className="block h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </span>
+            )}
           </button>
 
           <input
@@ -143,12 +156,12 @@ export function MediaTab() {
           <form onSubmit={handleAddLink} className="grid gap-3 rounded-xl border border-border p-4">
             <Label className="text-sm font-medium">
               <LinkIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              Tambah dari Link (URL video langsung, cth. .mp4)
+              Tambah dari Link (YouTube atau URL video langsung .mp4)
             </Label>
             <Input
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder="https://contoh.com/video.mp4"
+              placeholder="https://youtu.be/xxxx atau https://contoh.com/video.mp4"
               required
               type="url"
             />
@@ -203,7 +216,11 @@ export function MediaTab() {
                       variant={video.source === 'link' ? 'secondary' : 'outline'}
                       className="capitalize"
                     >
-                      {video.source === 'link' ? 'Link' : 'Upload'}
+                      {video.source === 'link'
+                        ? getVideoKind(video.url) === 'youtube'
+                          ? 'YouTube'
+                          : 'Link'
+                        : 'Upload'}
                     </Badge>
                     <Button
                       variant="ghost"
