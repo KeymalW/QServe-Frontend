@@ -11,6 +11,7 @@ import AdminReports from './pages/AdminReports'
 import AdminAccounts from './pages/AdminAccounts'
 import AdminServices from './pages/AdminServices'
 import PetugasDashboard from './pages/PetugasDashboard'
+import PetugasReports from './pages/PetugasReports'
 import MonitorTV from './pages/MonitorTV'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -69,6 +70,7 @@ export default function App() {
           }
         >
           <Route index element={<PetugasDashboard />} />
+          <Route path="laporan" element={<PetugasReports />} />
         </Route>
 
         {/* Redirect beranda sesuai role */}

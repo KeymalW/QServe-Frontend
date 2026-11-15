@@ -308,7 +308,7 @@ export default function AdminDashboard() {
                           style={{ backgroundColor: dotColor }}
                           aria-hidden="true"
                         />
-                        <span className="truncate">{card.name}</span>
+                        <span className="truncate">Loket {card.num}</span>
                         {isPaused && (
                           <Badge className="ml-auto bg-amber-50 text-amber-700 ring-1 ring-amber-200">
                             Istirahat

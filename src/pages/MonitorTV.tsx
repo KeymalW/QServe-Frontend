@@ -19,7 +19,8 @@ import { InstitutionLogo } from '../components/brand/InstitutionLogo'
 import { useSettingsStore } from '../store/settingsStore'
 import { useThemeStore } from '../store/themeStore'
 import { useServicesStore } from '../store/servicesStore'
-import { getServiceLabel } from '../lib/serviceTypes'
+import { buildCounterCards, getServiceLabel } from '../lib/serviceTypes'
+import { pickLatestByCounter } from '../lib/counterBoard'
 import { callAnnounceKey, isFreshCall } from '../lib/callAnnounce'
 import type { QueueTicket } from '../types/queue'
 
@@ -39,14 +40,14 @@ export default function MonitorTV() {
     ttsPitch: 1,
     ttsVolume: 1,
   })
-  const [lastCalledByType, setLastCalledByType] = useState<Record<string, QueueTicket | null>>({})
+  const [lastCalledByCounter, setLastCalledByCounter] = useState<Record<number, QueueTicket | null>>({})
   const [activeCall, setActiveCall] = useState<QueueTicket | null>(null)
   const [activeCallPulse, setActiveCallPulse] = useState(false)
   const [callCount, setCallCount] = useState(0)
   const [time, setTime] = useState(new Date())
   const fetchIdRef = useRef(0)
   const pulseRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [justCalledServiceType, setJustCalledServiceType] = useState<string | null>(null)
+  const [justCalledCounter, setJustCalledCounter] = useState<number | null>(null)
   // Kunci panggilan terakhir yang sudah diumumkan — guard anti-ulang
   // antara jalur WebSocket dan jalur polling.
   const lastAnnouncedRef = useRef<string | null>(null)
@@ -77,10 +78,10 @@ export default function MonitorTV() {
     setActiveCall(payload)
     setActiveCallPulse(true)
     setCallCount((c) => c + 1)
-    setJustCalledServiceType(payload.serviceType)
+    setJustCalledCounter(payload.counterNumber)
     pulseRef.current = setTimeout(() => {
       setActiveCallPulse(false)
-      setJustCalledServiceType(null)
+      setJustCalledCounter(null)
     }, 6000)
   }, [])
 
@@ -96,14 +97,9 @@ export default function MonitorTV() {
     void fetchTheme()
   }, [fetchGeneral, fetchServices, fetchTheme])
 
-  // Kartu TV: layanan aktif yang dipasangkan ke sebuah loket, urut nomor loket.
-  const tvCards = useMemo(
-    () =>
-      services
-        .filter((s) => s.isActive && s.counterNumber != null)
-        .sort((a, b) => (a.counterNumber ?? 0) - (b.counterNumber ?? 0)),
-    [services],
-  )
+  // Kartu TV: satu kartu per loket (nomor), bukan per layanan — supaya
+  // panggilan lintas layanan tetap tampil di loket yang memanggil.
+  const loketCards = useMemo(() => buildCounterCards(services), [services])
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement)
@@ -186,14 +182,7 @@ export default function MonitorTV() {
     if (id !== fetchIdRef.current) return
     setQueueList(waiting)
 
-    const byType: Record<string, QueueTicket | null> = {}
-    for (const t of [...called, ...serving]) {
-      const prev = byType[t.serviceType]
-      if (!prev || (t.calledAt && (!prev.calledAt || t.calledAt > prev.calledAt))) {
-        byType[t.serviceType] = t
-      }
-    }
-    setLastCalledByType(byType)
+    setLastCalledByCounter(pickLatestByCounter([...called, ...serving]))
 
     const allActive = [...called, ...serving].sort(
       (a, b) =>
@@ -206,10 +195,12 @@ export default function MonitorTV() {
   useWebSocket({
     onQueueCall: (msg) => {
       const payload = msg.payload as QueueTicket
-      setLastCalledByType((prev) => ({
-        ...prev,
-        [payload.serviceType]: payload,
-      }))
+      if (payload.counterNumber != null) {
+        setLastCalledByCounter((prev) => ({
+          ...prev,
+          [payload.counterNumber as number]: payload,
+        }))
+      }
 
       startCallFlash(payload)
       lastAnnouncedRef.current = callAnnounceKey(payload)
@@ -429,7 +420,7 @@ export default function MonitorTV() {
               {activeCall.counterNumber != null && (
                 <div className="mt-2 flex items-center gap-2 text-xl text-gray-400">
                   <div className="size-3 rounded-full bg-[var(--theme-accent)]" />
-                  {getServiceLabel(activeCall.serviceType)}
+                  Loket {activeCall.counterNumber}
                 </div>
               )}
             </>
@@ -449,15 +440,18 @@ export default function MonitorTV() {
         </div>
       </div>
 
-      {/* Bottom Section: Counter Cards (dinamis dari Kelola Layanan) */}
-      <div className="grid flex-[4] min-h-0 grid-cols-3 auto-rows-fr gap-3 overflow-hidden px-6 pb-4 pt-2">
-        {tvCards.map((service) => {
-          const isPaused = counterStatus[service.counterNumber ?? -1] ?? false
-          const ticket = lastCalledByType[service.code]
-          const isPulsing = justCalledServiceType === service.code
+      {/* Bottom Section: kartu per-loket (dinamis dari Kelola Layanan) */}
+      <div
+        className="grid flex-[4] min-h-0 auto-rows-fr gap-3 overflow-hidden px-6 pb-4 pt-2"
+        style={{ gridTemplateColumns: `repeat(${Math.max(loketCards.length, 1)}, minmax(0, 1fr))` }}
+      >
+        {loketCards.map((card) => {
+          const isPaused = counterStatus[card.num] ?? false
+          const ticket = lastCalledByCounter[card.num]
+          const isPulsing = justCalledCounter === card.num
           return (
             <div
-              key={service.id}
+              key={card.num}
               className={`flex min-h-0 flex-col items-center justify-center overflow-hidden rounded-2xl p-4 ring-1 backdrop-blur transition-all duration-500 ${
                 isPaused
                   ? 'bg-red-950/40 ring-red-500/30'
@@ -470,7 +464,7 @@ export default function MonitorTV() {
                 <div
                   className={`size-2.5 rounded-full ${isPaused ? 'bg-red-500' : 'bg-[var(--theme-accent)]'}`}
                 />
-                {getServiceLabel(service.code)}
+                LOKET {card.num}
               </div>
 
               {isPaused ? (
@@ -489,6 +483,9 @@ export default function MonitorTV() {
                     className="text-5xl font-bold tracking-tight"
                   >
                     {ticket.queueNumber}
+                  </div>
+                  <div className="mt-1 text-sm font-medium uppercase tracking-wide text-white/70">
+                    {getServiceLabel(ticket.serviceType)}
                   </div>
                 </>
               ) : (

@@ -1,13 +1,19 @@
 import { useEffect } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { LogOutIcon } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useThemeStore } from '../../store/themeStore'
 import { logout as logoutApi } from '../../services/auth'
+import { cn } from '../../lib/utils'
 import { InstitutionLogo } from '../brand/InstitutionLogo'
 import { PageTransition } from '../layout/PageTransition'
+
+const NAV_ITEMS = [
+  { to: '/petugas', label: 'Dashboard', end: true },
+  { to: '/petugas/laporan', label: 'Laporan', end: false },
+] as const
 
 export function PetugasLayout() {
   const { user, logout } = useAuthStore()
@@ -53,6 +59,26 @@ export function PetugasLayout() {
             </span>
           )}
         </div>
+
+        <nav className="flex items-center gap-1" aria-label="Navigasi petugas">
+          {NAV_ITEMS.map(({ to, label, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                cn(
+                  'rounded-lg px-3 py-1.5 text-sm transition-colors',
+                  isActive
+                    ? 'bg-[var(--theme-primary-soft)] font-medium text-[var(--theme-primary-dark)] ring-1 ring-[var(--theme-accent-soft)]'
+                    : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground'
+                )
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
 
         <div className="flex items-center gap-3">
           <div className="hidden text-right leading-tight sm:block">

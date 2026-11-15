@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../store/authStore'
 import { useQueueStore } from '../store/queueStore'
@@ -9,7 +9,6 @@ import { cn } from '../lib/utils'
 import {
   getQueueList,
   getQueueStats,
-  getWeeklyQueueList,
   callQueue,
   skipQueue,
   completeQueue,
@@ -39,12 +38,11 @@ import {
   ActivityIcon,
   BellRingIcon,
   CheckCircle2Icon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   ClockIcon,
   HistoryIcon,
   InboxIcon,
   KeyboardIcon,
+  LayersIcon,
   RefreshCwIcon,
   Trash2Icon,
   UserCheckIcon,
@@ -53,18 +51,8 @@ import {
   getServiceLabel,
   getServiceSortScore,
 } from '../lib/serviceTypes'
-import { buildWeeklyCounterChartData, type WeeklyServiceChartRow } from '../lib/weeklyCounterChart'
-import { formatDateId, formatDateTimeId, formatTimeId, getWeekRangeLabel } from '../lib/datetime'
-
-const ServiceSummaryChart = lazy(() =>
-  import('../components/dashboard/ServiceSummaryChart').then((module) => ({
-    default: module.ServiceSummaryChart,
-  })),
-)
-
-function ChartSkeleton() {
-  return <Skeleton className="h-[26rem] w-full rounded-xl" />
-}
+import { getOverflowSuggestions, isCounterIdle } from '../lib/serviceOverflow'
+import { formatDateId, formatDateTimeId, formatTimeId } from '../lib/datetime'
 
 function formatElapsed(start: string | null, now: Date) {
   if (!start) return '--:--'
@@ -189,14 +177,16 @@ export default function PetugasDashboard() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [recentCompleted, setRecentCompleted] = useState<QueueTicket[]>([])
-  const [serviceSummary, setServiceSummary] = useState<WeeklyServiceChartRow[]>([])
-  const [serviceCodes, setServiceCodes] = useState<string[]>([])
-  const [showServiceSummary, setShowServiceSummary] = useState(false)
   const [now, setNow] = useState(new Date())
 
   const counterNumber = user?.counterNumber ?? 1
   const isCounterPaused = counterStatus[counterNumber] ?? false
   const activeForTab = selectedCode ? activeByService[selectedCode] ?? null : null
+  const counterIdle = isCounterIdle(activeByService)
+  const overflowSuggestions = useMemo(
+    () => getOverflowSuggestions(queueList, selectedCode),
+    [queueList, selectedCode],
+  )
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -227,13 +217,12 @@ export default function PetugasDashboard() {
   const fetchData = useCallback(async () => {
     const id = ++fetchIdRef.current
     try {
-      const [list, statsData, calledTickets, servingTickets, completed, allTickets] = await Promise.all([
+      const [list, statsData, calledTickets, servingTickets, completed] = await Promise.all([
         getQueueList({ status: 'waiting' }),
         getQueueStats(),
         getQueueList({ status: 'called' }),
         getQueueList({ status: 'serving' }),
         getQueueList({ status: 'completed', perPage: 10 }),
-        getWeeklyQueueList(),
       ])
       if (id !== fetchIdRef.current) return
 
@@ -255,12 +244,6 @@ export default function PetugasDashboard() {
       setActiveByService(nextMap)
 
       setRecentCompleted(sortRecentCompleted(completed))
-      const chart = buildWeeklyCounterChartData(
-        allTickets,
-        useServicesStore.getState().services.map((service) => service.code),
-      )
-      setServiceSummary(chart.rows)
-      setServiceCodes(chart.codes)
     } catch {
       if (import.meta.env.DEV) console.error('Failed to fetch queue data')
       toast.error('Gagal memuat data antrian')
@@ -326,6 +309,9 @@ export default function PetugasDashboard() {
     setActionLoading(queueId)
     try {
       const result = await callQueue({ queueId, counterNumber })
+      // Pindah ke tab layanan tiket — penting untuk panggilan lintas layanan
+      // agar kartu "Sedang Dilayani" menampilkan tiket yang baru dipanggil.
+      setSelectedCode(ticket.serviceType)
       setServiceActive(ticket.serviceType, result)
       await fetchData()
     } catch (err) {
@@ -576,6 +562,57 @@ export default function PetugasDashboard() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {counterIdle && !isCounterPaused && overflowSuggestions.length > 0 && (
+            <Card className="border-emerald-200 bg-emerald-50/60 ring-1 ring-emerald-100">
+              <CardHeader className="[.border-b]:pb-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-emerald-900">
+                    <LayersIcon className="size-4" />
+                    Layanan Lain Menunggu
+                  </CardTitle>
+                  <CardDescription>
+                    Loket kamu sedang kosong. Kamu bisa memanggil antrian dari layanan lain.
+                  </CardDescription>
+                </div>
+                <Badge className="bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200 tabular-nums">
+                  {overflowSuggestions.length}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-64 overflow-auto">
+                  {overflowSuggestions.map((q) => (
+                    <div
+                      key={q.id}
+                      className="flex items-center justify-between gap-3 border-b border-emerald-200/60 py-3 transition-colors last:border-b-0 hover:bg-emerald-100/40"
+                    >
+                      <div className="grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-3">
+                        <span className="text-lg font-semibold tabular-nums text-foreground">
+                          {q.queueNumber}
+                        </span>
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate text-sm capitalize text-muted-foreground">
+                            {getServiceLabel(q.serviceType)}
+                          </span>
+                          <span className="truncate text-[11px] tabular-nums text-muted-foreground">
+                            Dicetak {formatDateTimeId(q.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleCall(q.id)}
+                        disabled={actionLoading === q.id || isCounterPaused}
+                      >
+                        {actionLoading === q.id && <Spinner data-icon="inline-start" />}
+                        Panggil
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="[.border-b]:pb-4">
               <div>
@@ -664,36 +701,6 @@ export default function PetugasDashboard() {
                 </div>
               )}
             </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0 [.border-b]:pb-4">
-              <div>
-                <CardTitle>Perbandingan Loket Mingguan</CardTitle>
-                <CardDescription>
-                  Minggu ini: {getWeekRangeLabel()} (Senin–Jumat)
-                </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowServiceSummary((prev) => !prev)}
-              >
-                {showServiceSummary ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                {showServiceSummary ? 'Minimize' : 'Buka Diagram'}
-              </Button>
-            </CardHeader>
-            {showServiceSummary && (
-              <CardContent className="pt-0">
-                {loading ? (
-                  <ChartSkeleton />
-                ) : (
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <ServiceSummaryChart rows={serviceSummary} codes={serviceCodes} embedded />
-                  </Suspense>
-                )}
-              </CardContent>
-            )}
           </Card>
         </div>
 

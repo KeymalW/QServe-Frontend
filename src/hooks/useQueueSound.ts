@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react'
 import type { QueueTicket } from '../types/queue'
-import { getServiceLabel } from '../lib/serviceTypes'
+import { buildAnnouncementSequence } from '../lib/queueAnnouncement'
 
 export interface QueueSoundOptions {
   ttsRate?: number
@@ -40,10 +40,6 @@ export function useQueueSound(options?: QueueSoundOptions) {
   const ttsRate = options?.ttsRate ?? 0.92
   const ttsPitch = options?.ttsPitch ?? 1
   const ttsVolume = options?.ttsVolume ?? 1
-
-  type AnnouncementStep =
-    | { kind: 'bell'; delay: number }
-    | { kind: 'speak'; text: string; delay: number }
 
   const clearAnnouncementQueue = useCallback(() => {
     announceTimersRef.current.forEach((timer) => clearTimeout(timer))
@@ -124,15 +120,7 @@ export function useQueueSound(options?: QueueSoundOptions) {
 
     clearAnnouncementQueue()
 
-    const label = getServiceLabel(ticket.serviceType)
-
-    const sequence: AnnouncementStep[] = [
-      { kind: 'bell', delay: 0 },
-      { kind: 'speak', text: 'Nomor antrian', delay: 650 },
-      { kind: 'speak', text: ticket.queueNumber, delay: 500 },
-      { kind: 'speak', text: 'silakan menuju loket', delay: 500 },
-      { kind: 'speak', text: label, delay: 500 },
-    ]
+    const sequence = buildAnnouncementSequence(ticket)
 
     sequence.forEach((item, index) => {
       const timer = setTimeout(() => {
