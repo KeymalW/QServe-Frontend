@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { getTicketById, getQueueList } from '../services/queue'
 import { getTicketTextSettings, getGeneralSettings } from '../services/settings'
 import { useServicesStore } from '../store/servicesStore'
@@ -32,6 +33,11 @@ const statusColors: Record<string, string> = {
   skipped: 'text-red-600 bg-red-50 ring-red-200',
 }
 
+const getTrackingUrl = (ticketId: string) => {
+  const baseUrl = (import.meta.env.VITE_PUBLIC_URL || window.location.origin).replace(/\/$/, '')
+  return `${baseUrl}/track/${encodeURIComponent(ticketId)}`
+}
+
 export default function TrackTicket() {
   const { id } = useParams<{ id: string }>()
   const [ticket, setTicket] = useState<QueueTicket | null>(null)
@@ -39,6 +45,7 @@ export default function TrackTicket() {
   const [error, setError] = useState('')
   const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
+  const trackingUrl = id ? getTrackingUrl(id) : ''
   const [ticketText, setTicketText] = useState<TicketTextSettings>({
     headerText: 'TIKET ANTRIAN',
     subHeaderText: '',
@@ -79,10 +86,14 @@ export default function TrackTicket() {
         setTicket(t)
 
         if (t && t.status === 'waiting') {
-          const all = await getQueueList({ status: 'waiting' })
-          if (cancelled) return
-          const pos = all.findIndex((x) => x.id === t.id)
-          setQueuePosition(pos >= 0 ? pos + 1 : null)
+          try {
+            const all = await getQueueList({ status: 'waiting' })
+            if (cancelled) return
+            const pos = all.findIndex((x) => x.id === t.id)
+            setQueuePosition(pos >= 0 ? pos + 1 : null)
+          } catch {
+            if (!cancelled) setQueuePosition(null)
+          }
         } else {
           setQueuePosition(null)
         }
@@ -178,6 +189,17 @@ export default function TrackTicket() {
                 Layanan: {getServiceLabel(ticket.serviceType)}
               </div>
 
+              {trackingUrl && (
+                <div className="mb-6 flex flex-col items-center gap-2">
+                  <div className="rounded-lg bg-white p-2 ring-1 ring-pln-cyan/20">
+                    <QRCodeSVG value={trackingUrl} size={96} bgColor="#ffffff" fgColor="#000000" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Scan untuk memantau status tiket
+                  </span>
+                </div>
+              )}
+
               {ticket.status === 'waiting' && queuePosition !== null && (
                 <div className="mb-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
                   <div className="flex items-center justify-center gap-2 font-medium">
@@ -257,6 +279,11 @@ export default function TrackTicket() {
           <div className="print-number">{ticket.queueNumber}</div>
           <div className="print-service">{getServiceLabel(ticket.serviceType)}</div>
           <div className="print-divider" />
+          {trackingUrl && (
+            <div className="print-qr">
+              <QRCodeSVG value={trackingUrl} size={92} bgColor="#ffffff" fgColor="#000000" />
+            </div>
+          )}
           <div className="print-footer">
             <div>{new Date(ticket.createdAt).toLocaleDateString('id-ID')}</div>
             <div>{new Date(ticket.createdAt).toLocaleTimeString('id-ID')}</div>

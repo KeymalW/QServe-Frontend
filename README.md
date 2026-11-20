@@ -72,8 +72,11 @@ Aktifkan dengan `VITE_USE_MOCK_DATA=true` di `.env` — semua service (auth, que
 | Variable             | Default                                  | Description                 |
 | -------------------- | ---------------------------------------- | --------------------------- |
 | `VITE_API_URL`       | `http://localhost/antrian-pln/public/api` | Base URL backend API       |
-| `VITE_WS_URL`        | `ws://localhost:3001`                    | WebSocket URL real-time     |
-| `VITE_USE_MOCK_DATA` | `true`                                   | Pakai mock backend          |
+| `VITE_WS_URL`        | `ws://localhost:3001`                    | WebSocket URL real-time    |
+| `VITE_USE_MOCK_DATA` | `true`                                   | Pakai mock backend         |
+| `VITE_PUBLIC_URL`    | `http://localhost:5173`                  | URL yang ditulis ke QR tiket; isi dengan IP LAN/public saat di-scan dari HP |
+
+Untuk demo QR dari HP tanpa mengubah CORS backend, set `VITE_API_URL=/api`. Vite akan mem-proxy `/api` ke backend Railway, sehingga browser HP tetap mengakses origin yang sama. Untuk deploy produksi tanpa proxy, isi `VITE_API_URL` dengan URL backend penuh.
 
 ## Mock Credentials
 
@@ -102,13 +105,19 @@ Aktifkan dengan `VITE_USE_MOCK_DATA=true` di `.env` — semua service (auth, que
 
 ## Deployment
 
-```bash
-npm run build
-```
+Proyek ini siap di-deploy ke Vercel menggunakan `vercel.json`:
 
-Hasil build ada di folder `dist/` — file statis murni yang bisa di-serve oleh server apa pun (Nginx, Apache, CDN, atau `npm run preview`).
+- Build command: `npm run build`
+- Output directory: `dist`
+- Environment variables:
+  - `VITE_USE_MOCK_DATA=false`
+  - `VITE_API_URL=/api`
+  - `VITE_PUBLIC_URL` dikosongkan agar QR memakai origin deploy secara otomatis
+  - `VITE_WS_URL` diisi setelah WebSocket server memiliki URL publik
 
-Backend API dan WebSocket server tetap di-deploy terpisah, lalu arahkan `VITE_API_URL` dan `VITE_WS_URL` ke URL server masing-masing.
+`vercel.json` meneruskan `/api/(.*)` ke backend Railway, sehingga browser tidak mengalami kendala CORS. Untuk hosting lain, siapkan reverse proxy `/api` dengan target yang sama. Jangan meng-upload folder `dist/` lokal karena build tersebut masih menyimpan alamat IP LAN.
+
+Backend API dan WebSocket server tetap di-deploy terpisah. Halaman tracking tidak memerlukan WebSocket.
 
 ## Struktur
 

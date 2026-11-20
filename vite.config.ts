@@ -13,6 +13,21 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'https://qserve-backend-production.up.railway.app',
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'https://qserve-backend-production.up.railway.app',
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     environment: 'jsdom',
