@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock, Loader2 } from 'lucide-react'
 import { useTicketTracking } from '../hooks/useTicketTracking'
@@ -10,23 +10,30 @@ export default function WaitingTicket() {
   const { id } = useParams<{ id: string }>()
   const { ticket, loading, error, estimate } = useTicketTracking(id)
   const fetchServices = useServicesStore((state) => state.fetchServices)
-  const lastSignalRef = useRef<string | null>(null)
+  const calledTicketId = ticket?.status === 'called' ? ticket.id : null
 
   useEffect(() => {
     void fetchServices()
   }, [fetchServices])
 
   useEffect(() => {
-    if (!ticket) return
+    if (!calledTicketId) return
 
-    const signalKey = `${ticket.id}:${ticket.status}`
-    if (signalKey === lastSignalRef.current) return
-    lastSignalRef.current = signalKey
-
-    if (ticket.status === 'called' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate([200, 100, 200])
+    const vibrate = () => {
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate([200, 100, 200])
+      }
     }
-  }, [ticket])
+
+    vibrate()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') vibrate()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [calledTicketId])
 
   if (loading) {
     return (

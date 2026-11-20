@@ -111,4 +111,24 @@ describe('WaitingTicket', () => {
     expect(vibrateMock).toHaveBeenCalledTimes(1)
     expect(vibrateMock).toHaveBeenCalledWith([200, 100, 200])
   })
+
+  it('re-vibrates when the tab becomes visible while the ticket is called', async () => {
+    getTicketByIdMock.mockResolvedValue({
+      ...waitingTicket,
+      status: 'called',
+      counterNumber: 2,
+      calledAt: '2026-11-20T10:05:00.000Z',
+    })
+
+    renderPage()
+
+    expect(await screen.findByText('Loket 2')).toBeInTheDocument()
+    expect(vibrateMock).toHaveBeenCalledTimes(1)
+
+    const visibilitySpy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(vibrateMock).toHaveBeenCalledTimes(2)
+
+    visibilitySpy.mockRestore()
+  })
 })

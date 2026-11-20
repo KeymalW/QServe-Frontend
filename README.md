@@ -29,7 +29,7 @@ Sistem ini butuh 3 proses berjalan bersamaan:
 
 1. **Backend API** (Laravel) — serve via Laragon / `php artisan serve`
 2. **WebSocket Server** — `cd websocket-server && node server.js`
-3. **Frontend** — `npm run dev` (http://localhost:5173)
+3. **Frontend** — `npm run dev` (https://localhost:5173; sertifikat self-signed perlu diterima sekali)
 
 > Pastikan `VITE_USE_MOCK_DATA=false` di `.env` supaya pake backend real.
 
@@ -54,7 +54,7 @@ Event yang dikirim ke client: `queue_update`, `queue_call`, `queue_complete`, `q
 
 | Script            | Perintah            | Deskripsi                          |
 | ----------------- | ------------------- | ---------------------------------- |
-| `dev`             | `npm run dev`       | Jalankan dev server (Vite)         |
+| `dev`             | `npm run dev`       | Jalankan dev server HTTPS (Vite)   |
 | `build`           | `npm run build`     | Build produksi ke `dist/`          |
 | `preview`         | `npm run preview`   | Preview hasil build                |
 | `lint`            | `npm run lint`      | Cek kode dengan ESLint             |
@@ -74,9 +74,9 @@ Aktifkan dengan `VITE_USE_MOCK_DATA=true` di `.env` — semua service (auth, que
 | `VITE_API_URL`       | `http://localhost/antrian-pln/public/api` | Base URL backend API       |
 | `VITE_WS_URL`        | `ws://localhost:3001`                    | WebSocket URL real-time    |
 | `VITE_USE_MOCK_DATA` | `true`                                   | Pakai mock backend         |
-| `VITE_PUBLIC_URL`    | `http://localhost:5173`                  | URL yang ditulis ke QR tiket; isi dengan IP LAN/public saat di-scan dari HP |
+| `VITE_PUBLIC_URL`    | `https://localhost:5173`                 | URL yang ditulis ke QR tiket; pakai HTTPS/IP LAN agar getar HP aktif |
 
-Untuk demo QR dari HP tanpa mengubah CORS backend, set `VITE_API_URL=/api`. Vite akan mem-proxy `/api` ke backend Railway, sehingga browser HP tetap mengakses origin yang sama. Untuk deploy produksi tanpa proxy, isi `VITE_API_URL` dengan URL backend penuh.
+Untuk demo QR dari HP tanpa mengubah CORS backend, set `VITE_API_URL=/api`. Vite akan mem-proxy `/api` ke backend Railway, sehingga browser HP tetap mengakses origin yang sama. Vibration API browser hanya aktif di HTTPS, jadi buka QR lewat URL HTTPS IP LAN dan terima peringatan sertifikat self-signed sekali di Android Chrome. Untuk deploy produksi tanpa proxy, isi `VITE_API_URL` dengan URL backend penuh.
 
 ## Mock Credentials
 
