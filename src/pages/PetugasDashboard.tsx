@@ -655,7 +655,7 @@ export default function PetugasDashboard() {
               ) : (
                 <div className="max-h-72 overflow-auto">
                   <div className="min-w-[520px]">
-                    {queueList.map((q) => (
+                    {visibleQueue.map((q) => (
                       <div
                         key={q.id}
                         className="flex items-center justify-between gap-3 border-b border-border/70 py-3 transition-colors last:border-b-0 hover:bg-muted/40"

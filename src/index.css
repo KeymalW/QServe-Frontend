@@ -115,6 +115,10 @@ dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
 }
 
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 .print-only {
   display: none;
 }

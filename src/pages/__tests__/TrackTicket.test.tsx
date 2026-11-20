@@ -59,12 +59,12 @@ describe('TrackTicket QR', () => {
       </MemoryRouter>
     )
 
-    expect(await screen.findByText('Scan untuk memantau status tiket')).toBeInTheDocument()
+    expect(await screen.findByText('Scan dengan HP untuk memantau status')).toBeInTheDocument()
 
     const codes = screen.getAllByTestId('ticket-qr')
     expect(codes).toHaveLength(2)
-    expect(codes[0].getAttribute('data-value')).toBe(`${window.location.origin}/track/ticket-1`)
-    expect(codes[1].getAttribute('data-value')).toBe(`${window.location.origin}/track/ticket-1`)
+    expect(codes[0].getAttribute('data-value')).toBe(`${window.location.origin}/tunggu/ticket-1`)
+    expect(codes[1].getAttribute('data-value')).toBe(`${window.location.origin}/tunggu/ticket-1`)
   })
 
   it('uses VITE_PUBLIC_URL when configured', async () => {
@@ -78,9 +78,22 @@ describe('TrackTicket QR', () => {
       </MemoryRouter>
     )
 
-    expect(await screen.findByText('Scan untuk memantau status tiket')).toBeInTheDocument()
+    expect(await screen.findByText('Scan dengan HP untuk memantau status')).toBeInTheDocument()
 
     const codes = screen.getAllByTestId('ticket-qr')
-    expect(codes[0].getAttribute('data-value')).toBe('http://192.168.1.7:5173/track/ticket-1')
+    expect(codes[0].getAttribute('data-value')).toBe('http://192.168.1.7:5173/tunggu/ticket-1')
+  })
+
+  it('keeps print and back buttons on the kiosk page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/track/ticket-1']}>
+        <Routes>
+          <Route path="/track/:id" element={<TrackTicket />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('button', { name: /Cetak Tiket/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Kembali/i })).toBeInTheDocument()
   })
 })

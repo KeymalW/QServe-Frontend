@@ -16,6 +16,7 @@ import MonitorTV from './pages/MonitorTV'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import TrackTicket from './pages/TrackTicket'
+import WaitingTicket from './pages/WaitingTicket'
 import AdminTenants from './pages/AdminTenants'
 import NotFound from './pages/NotFound'
 import { NetworkStatus } from './components/ui/NetworkStatus'
@@ -94,6 +95,7 @@ export default function App() {
           }
         />
         <Route path="/track/:id" element={<PageTransition><TrackTicket /></PageTransition>} />
+        <Route path="/tunggu/:id" element={<PageTransition><WaitingTicket /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
       <Toaster />
