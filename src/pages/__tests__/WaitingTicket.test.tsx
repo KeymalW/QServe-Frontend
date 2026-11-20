@@ -4,10 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { QueueTicket } from '../../types/queue'
 import WaitingTicket from '../WaitingTicket'
 
-const { getTicketByIdMock, getQueueListMock, fetchServices } = vi.hoisted(() => ({
+const { getTicketByIdMock, getQueueListMock, fetchServices, vibrateMock } = vi.hoisted(() => ({
   getTicketByIdMock: vi.fn(),
   getQueueListMock: vi.fn(),
   fetchServices: vi.fn().mockResolvedValue(undefined),
+  vibrateMock: vi.fn(),
 }))
 
 vi.mock('../../services/queue', () => ({
@@ -43,6 +44,10 @@ const renderPage = () =>
 describe('WaitingTicket', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(navigator, 'vibrate', {
+      configurable: true,
+      value: vibrateMock,
+    })
     getTicketByIdMock.mockResolvedValue(waitingTicket)
     getQueueListMock.mockImplementation(async (params?: { status?: string }) => {
       if (params?.status === 'waiting') {
@@ -78,6 +83,8 @@ describe('WaitingTicket', () => {
     expect(screen.getByTestId('queue-position')).toHaveTextContent('Antrian ke-2 untuk layanan ini')
     expect(screen.getByText('berdasarkan 2 tiket sebelumnya')).toBeInTheDocument()
     expect(screen.getByText('Menunggu')).toBeInTheDocument()
+    expect(screen.queryByText(/diperbarui tiap 5 detik/i)).not.toBeInTheDocument()
+    expect(vibrateMock).not.toHaveBeenCalled()
   })
 
   it('has no navigation controls on the waiting page', async () => {
@@ -101,5 +108,7 @@ describe('WaitingTicket', () => {
     expect(await screen.findByText('Loket 2')).toBeInTheDocument()
     expect(screen.getByText('Dipanggil')).toBeInTheDocument()
     expect(screen.queryByTestId('estimated-wait')).not.toBeInTheDocument()
+    expect(vibrateMock).toHaveBeenCalledTimes(1)
+    expect(vibrateMock).toHaveBeenCalledWith([200, 100, 200])
   })
 })

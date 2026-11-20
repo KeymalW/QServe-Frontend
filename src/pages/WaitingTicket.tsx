@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock, Loader2 } from 'lucide-react'
 import { useTicketTracking } from '../hooks/useTicketTracking'
@@ -10,10 +10,23 @@ export default function WaitingTicket() {
   const { id } = useParams<{ id: string }>()
   const { ticket, loading, error, estimate } = useTicketTracking(id)
   const fetchServices = useServicesStore((state) => state.fetchServices)
+  const lastSignalRef = useRef<string | null>(null)
 
   useEffect(() => {
     void fetchServices()
   }, [fetchServices])
+
+  useEffect(() => {
+    if (!ticket) return
+
+    const signalKey = `${ticket.id}:${ticket.status}`
+    if (signalKey === lastSignalRef.current) return
+    lastSignalRef.current = signalKey
+
+    if (ticket.status === 'called' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate([200, 100, 200])
+    }
+  }, [ticket])
 
   if (loading) {
     return (
@@ -52,14 +65,6 @@ export default function WaitingTicket() {
   return (
     <div className="safe-bottom flex min-h-screen items-center justify-center bg-background px-5 py-10">
       <div className="w-full max-w-md text-center">
-        <div className="mb-8 inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-pln-cyan opacity-75" />
-            <span className="relative inline-flex size-2 rounded-full bg-pln-cyan" />
-          </span>
-          Live · diperbarui tiap 5 detik
-        </div>
-
         <div
           role="status"
           aria-live="polite"
@@ -102,7 +107,7 @@ export default function WaitingTicket() {
 
         {isWaiting && !estimate && (
           <div className="rounded-3xl bg-pln-cyan/5 p-6 text-sm text-muted-foreground ring-1 ring-pln-cyan/15">
-            Silakan tunggu nomor kamu dipanggil. Halaman ini diperbarui otomatis.
+            Silakan tunggu nomor kamu dipanggil.
           </div>
         )}
 
