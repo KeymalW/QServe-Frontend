@@ -4,8 +4,6 @@ import type { WebSocketMessage } from '../types/api'
 
 type MessageHandler = (msg: WebSocketMessage) => void
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:3001/ws'
-
 const HEARTBEAT_INTERVAL = 30000
 const MAX_RETRIES = 5
 
@@ -24,6 +22,13 @@ function isUsableWebSocketUrl(url: string) {
     return false
   }
 }
+
+const configuredWsUrl = import.meta.env.VITE_WS_URL ?? ''
+const WS_URL = isUsableWebSocketUrl(configuredWsUrl)
+  ? configuredWsUrl
+  : typeof window !== 'undefined' && window.location.protocol === 'https:'
+    ? 'wss://qserve-backend-production.up.railway.app'
+    : 'ws://localhost:3001'
 
 export function useWebSocket(handlers?: {
   onQueueUpdate?: MessageHandler
