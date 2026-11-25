@@ -81,7 +81,7 @@ export function useWebSocket(handlers?: {
         return
       }
 
-      const token = localStorage.getItem('token')
+      const token = sessionStorage.getItem('token')
       const url = token ? `${WS_URL}?token=${encodeURIComponent(token)}` : WS_URL
       const socket = new WebSocket(url)
 
@@ -95,7 +95,7 @@ export function useWebSocket(handlers?: {
         startHeartbeat(socket)
         // Register tenant for server-side isolation
         try {
-          const raw = localStorage.getItem('user')
+          const raw = sessionStorage.getItem('user')
           if (raw) {
             const u = JSON.parse(raw) as { tenantId?: number; tenant_id?: number }
             const tid = u.tenantId ?? u.tenant_id ?? null
@@ -113,7 +113,7 @@ export function useWebSocket(handlers?: {
           const msg: WebSocketMessage & { tenantId?: number } = JSON.parse(event.data)
           // Client-side tenant filter as fallback (server already filters, but keep for safety)
           try {
-            const raw = localStorage.getItem('user')
+            const raw = sessionStorage.getItem('user')
             if (raw && msg.tenantId != null) {
               const u = JSON.parse(raw) as { tenantId?: number; tenant_id?: number }
               const myTid = u.tenantId ?? u.tenant_id ?? null
@@ -123,7 +123,7 @@ export function useWebSocket(handlers?: {
             const pTid = (msg.payload as Record<string, unknown> | undefined)?.tenantId ??
                          (msg.payload as Record<string, unknown> | undefined)?.tenant_id
             if (pTid != null) {
-              const raw2 = localStorage.getItem('user')
+              const raw2 = sessionStorage.getItem('user')
               if (raw2) {
                 const u2 = JSON.parse(raw2) as { tenantId?: number; tenant_id?: number }
                 const myTid2 = u2.tenantId ?? u2.tenant_id ?? null

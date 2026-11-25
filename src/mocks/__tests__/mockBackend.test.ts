@@ -17,6 +17,15 @@ describe('mockBackend — identitas tenant baru', () => {
     mock = await loadMock()
   })
 
+  it('menyimpan sesi login di sessionStorage, bukan localStorage', () => {
+    mock.mockLogin('adminulpsubang', 'adminulpsubang')
+
+    expect(sessionStorage.getItem('token')).toBeTruthy()
+    expect(sessionStorage.getItem('user')).toBeTruthy()
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
+  })
+
   it('mengosongkan logo dan mengisi nama perusahaan saat registrasi', () => {
     mock.mockUpdateGeneralSettings({ institutionName: 'PT Lama', logoUrl: '/assets/logo-lama.png' })
 

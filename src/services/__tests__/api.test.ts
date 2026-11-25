@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 
 vi.mock('axios', () => {
   const mockAxios = {
@@ -23,7 +23,8 @@ vi.mock('../../store/authStore', () => ({
 describe('api service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
+    vi.resetModules()
+    sessionStorage.clear()
   })
 
   it('creates axios instance with correct config', async () => {
@@ -38,6 +39,18 @@ describe('api service', () => {
         headers: { 'Content-Type': 'application/json' },
       })
     )
+  })
+
+  it('mengambil token dari sessionStorage', async () => {
+    sessionStorage.setItem('token', 'token-tab-ini')
+    await import('../api')
+    const mockApi = vi.mocked(axios).create()
+    const interceptor = vi.mocked(mockApi.interceptors.request.use).mock.calls[0][0]
+    const config = { headers: {} } as unknown as InternalAxiosRequestConfig
+
+    interceptor(config)
+
+    expect(config.headers.Authorization).toBe('Bearer token-tab-ini')
   })
 
   it('get calls axios.get with params', async () => {

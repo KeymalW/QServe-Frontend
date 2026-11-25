@@ -11,8 +11,8 @@ interface AuthState {
 
 function loadFromStorage(): { user: User | null; token: string | null; isAuthenticated: boolean } {
   try {
-    const token = localStorage.getItem('token')
-    const userStr = localStorage.getItem('user')
+    const token = sessionStorage.getItem('token')
+    const userStr = sessionStorage.getItem('user')
     if (token && userStr) {
       return {
         user: JSON.parse(userStr) as User,
@@ -21,8 +21,8 @@ function loadFromStorage(): { user: User | null; token: string | null; isAuthent
       }
     }
   } catch {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
   }
   return { user: null, token: null, isAuthenticated: false }
 }
@@ -31,14 +31,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   ...loadFromStorage(),
 
   login: (user, token) => {
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(user))
+    sessionStorage.setItem('token', token)
+    sessionStorage.setItem('user', JSON.stringify(user))
     set({ user, token, isAuthenticated: true })
   },
 
   logout: () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
     set({ user: null, token: null, isAuthenticated: false })
   },
 }))

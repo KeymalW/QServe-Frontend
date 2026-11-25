@@ -174,23 +174,27 @@ export default function MonitorTV() {
   }, [])
 
   const fetchAll = useCallback(async () => {
-    const id = ++fetchIdRef.current
-    const [waiting, called, serving] = await Promise.all([
-      getQueueList({ status: 'waiting', perPage: 50 }),
-      getQueueList({ status: 'called' }),
-      getQueueList({ status: 'serving' }),
-    ])
-    if (id !== fetchIdRef.current) return
-    setQueueList(waiting)
+    try {
+      const id = ++fetchIdRef.current
+      const [waiting, called, serving] = await Promise.all([
+        getQueueList({ status: 'waiting', perPage: 50 }),
+        getQueueList({ status: 'called' }),
+        getQueueList({ status: 'serving' }),
+      ])
+      if (id !== fetchIdRef.current) return
+      setQueueList(waiting)
 
-    setLastCalledByCounter(pickLatestByCounter([...called, ...serving]))
+      setLastCalledByCounter(pickLatestByCounter([...called, ...serving]))
 
-    const allActive = [...called, ...serving].sort(
-      (a, b) =>
-        new Date(b.calledAt ?? b.createdAt).getTime() -
-        new Date(a.calledAt ?? a.createdAt).getTime(),
-    )
-    setActiveCall(allActive[0] ?? null)
+      const allActive = [...called, ...serving].sort(
+        (a, b) =>
+          new Date(b.calledAt ?? b.createdAt).getTime() -
+          new Date(a.calledAt ?? a.createdAt).getTime(),
+      )
+      setActiveCall(allActive[0] ?? null)
+    } catch {
+      if (import.meta.env.DEV) console.error('Failed to refresh monitor data')
+    }
   }, [setQueueList])
 
   useWebSocket({

@@ -430,7 +430,7 @@ type MockVideoLink = { id: string; url: string; title: string }
 
 function currentMockTenantKey(): string {
   try {
-    const raw = localStorage.getItem('user')
+    const raw = sessionStorage.getItem('user')
     if (raw) {
       const parsed = JSON.parse(raw) as {
         tenantId?: number | null
@@ -637,8 +637,8 @@ export function mockLogin(username: string, password: string): LoginResponse {
     throw new Error('Invalid credentials')
   }
 
-  localStorage.setItem('token', `mock-${account.user.id}-token`)
-  localStorage.setItem('user', JSON.stringify(account.user))
+  sessionStorage.setItem('token', `mock-${account.user.id}-token`)
+  sessionStorage.setItem('user', JSON.stringify(account.user))
 
   return {
     user: { ...account.user },
@@ -717,19 +717,19 @@ export function mockRegister(payload: {
   saveState()
 
   const token = `mock-${user.id}-token`
-  localStorage.setItem('token', token)
-  localStorage.setItem('user', JSON.stringify(user))
+  sessionStorage.setItem('token', token)
+  sessionStorage.setItem('user', JSON.stringify(user))
 
   return { user: { ...user }, token }
 }
 
 export function mockLogout(): void {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
+  sessionStorage.removeItem('token')
+  sessionStorage.removeItem('user')
 }
 
 export function mockGetProfile(): User {
-  const raw = localStorage.getItem('user')
+  const raw = sessionStorage.getItem('user')
   if (raw) {
     return JSON.parse(raw) as User
   }
@@ -957,11 +957,11 @@ export function mockUpdateAccount(id: string, input: UpdateAccountInput): User {
 
   /* Jika akun yang diedit adalah user yang sedang login, perbarui session. */
   try {
-    const raw = localStorage.getItem('user')
+    const raw = sessionStorage.getItem('user')
     if (raw) {
       const current = JSON.parse(raw) as User
       if (current.id === id) {
-        localStorage.setItem('user', JSON.stringify({ ...entry.user }))
+        sessionStorage.setItem('user', JSON.stringify({ ...entry.user }))
       }
     }
   } catch {

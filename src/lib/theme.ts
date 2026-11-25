@@ -12,7 +12,7 @@ export const THEME_STORAGE_KEY = 'qserve-theme'
 
 function currentTenantKey(): string {
   try {
-    const raw = localStorage.getItem('user')
+    const raw = sessionStorage.getItem('user')
     if (raw) {
       const parsed = JSON.parse(raw) as {
         tenantId?: number | null
@@ -27,7 +27,7 @@ function currentTenantKey(): string {
       }
     }
   } catch {
-    /* localStorage tidak tersedia / user bukan JSON valid */
+    /* sessionStorage tidak tersedia / user bukan JSON valid */
   }
   return 'default'
 }
