@@ -157,11 +157,11 @@ export function KioskTab() {
               className="h-12 w-12 rounded-lg object-contain"
               placeholderClassName="size-12 rounded-lg bg-white/10 text-white/60 ring-white/20"
             />
-            <p className="mt-3 text-xs font-light tracking-wide text-white/90">
-              {values.welcomeText || 'Selamat Datang di'}
-            </p>
-            <p className="mt-0.5 truncate text-lg font-bold text-white">
-              {general?.institutionName?.trim() || 'ULP Subang'}
+            {values.welcomeText.trim() && (
+              <p className="mt-3 text-xs font-light tracking-wide text-white/90">{values.welcomeText}</p>
+            )}
+            <p className={`truncate text-lg font-bold text-white ${values.welcomeText.trim() ? 'mt-0.5' : 'mt-3'}`}>
+              {general?.institutionName?.trim()}
             </p>
             <p className="mt-1 text-[11px] font-medium text-white/80">
               {values.subtitleText || 'Silakan pilih layanan yang Anda butuhkan'}

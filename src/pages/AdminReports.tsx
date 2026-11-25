@@ -12,8 +12,8 @@ import { StatCard } from '../components/admin/StatCard'
 import {
   CalendarDaysIcon,
   CheckCircle2Icon,
-  DownloadIcon,
   FileSpreadsheetIcon,
+  FileTextIcon,
   InboxIcon,
   RefreshCwIcon,
   SkipForwardIcon,
@@ -24,7 +24,7 @@ import { getServiceLabel, SERVICE_STATUS_LABELS, STATUS_BADGE_COLOR } from '../l
 import type { QueueStatus, QueueTicket } from '../types/queue'
 import { buildWeeklyCounterChartData } from '../lib/weeklyCounterChart'
 import { useServicesStore } from '../store/servicesStore'
-import { downloadTableCsv, downloadTableExcel } from '../lib/chartExport'
+import { downloadTableExcel, downloadTablePdf } from '../lib/chartExport'
 import { formatDateId, formatDateTimeId } from '../lib/datetime'
 
 const ServiceSummaryChart = lazy(() =>
@@ -129,9 +129,10 @@ export default function AdminReports() {
     setTo(range.to)
   }
 
-  const exportCsv = () => {
-    downloadTableCsv(
-      `riwayat-antrian-${from}_${to}.csv`,
+  const exportPdf = async () => {
+    await downloadTablePdf(
+      `riwayat-antrian-${from}_${to}.pdf`,
+      `Riwayat Antrian - ${formatDateId(from)} s/d ${formatDateId(to)}`,
       ['No. Tiket', 'Layanan', 'Status', 'Loket', 'Dibuat', 'Selesai'],
       sortedDesc.map((t) => [
         t.queueNumber,
@@ -141,6 +142,7 @@ export default function AdminReports() {
         formatDateTimeId(t.createdAt),
         t.completedAt ? formatDateTimeId(t.completedAt) : '-',
       ]),
+      [22, 40, 24, 18, 41, 41],
     )
   }
 
@@ -166,9 +168,9 @@ export default function AdminReports() {
         description="Riwayat layanan dan performa antrian per rentang waktu."
         actions={
           <>
-            <Button variant="outline" onClick={() => void exportCsv()} disabled={loading || tickets.length === 0}>
-              <DownloadIcon data-icon="inline-start" />
-              CSV
+            <Button variant="outline" onClick={() => void exportPdf()} disabled={loading || tickets.length === 0}>
+              <FileTextIcon data-icon="inline-start" />
+              PDF
             </Button>
             <Button variant="outline" onClick={() => void exportExcel()} disabled={loading || tickets.length === 0}>
               <FileSpreadsheetIcon data-icon="inline-start" />

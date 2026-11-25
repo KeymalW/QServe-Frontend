@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useSettingsStore } from '../../store/settingsStore'
 import { uploadLogo } from '../../services/settings'
-import { BRANDING } from '../../lib/branding'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -50,12 +49,15 @@ export function IdentityTab() {
   }
 
   const handleSave = async () => {
+    const name = institutionName.trim()
+    if (!name) {
+      toast.error('Nama instansi wajib diisi')
+      return
+    }
+
     setSaving(true)
     try {
-      await saveGeneral({
-        institutionName: institutionName.trim() || BRANDING.app.name,
-        logoUrl,
-      })
+      await saveGeneral({ institutionName: name, logoUrl })
       toast.success('Identitas instansi berhasil disimpan')
     } catch {
       toast.error('Gagal menyimpan identitas')

@@ -234,9 +234,15 @@ export default function Kiosk() {
           />
         </div>
 
-        <h1 className="mt-6 text-2xl font-light tracking-wide text-white/90">{kioskText.welcomeText}</h1>
-        <p className="mt-1 font-display text-5xl font-bold tracking-tight text-white md:text-6xl">
-          {general?.institutionName?.trim() || 'ULP Subang'}
+        {kioskText.welcomeText.trim() && (
+          <h1 className="mt-6 text-2xl font-light tracking-wide text-white/90">{kioskText.welcomeText}</h1>
+        )}
+        <p
+          className={`font-display text-5xl font-bold tracking-tight text-white md:text-6xl ${
+            kioskText.welcomeText.trim() ? 'mt-1' : 'mt-6'
+          }`}
+        >
+          {general?.institutionName?.trim()}
         </p>
         <p className="mt-4 text-lg font-medium text-white/80">{kioskText.subtitleText}</p>
 

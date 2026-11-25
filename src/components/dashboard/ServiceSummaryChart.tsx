@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { BarChart3Icon, DownloadIcon, FileSpreadsheetIcon } from 'lucide-react'
+import { BarChart3Icon, FileSpreadsheetIcon, FileTextIcon } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -17,8 +17,8 @@ import {
   type WeeklyServiceChartRow,
 } from '../../lib/weeklyCounterChart'
 import {
-  downloadWeeklyChartCsv,
   downloadWeeklyChartExcel,
+  downloadWeeklyChartPdf,
 } from '../../lib/chartExport'
 import { getServiceColor, getServiceLabel } from '../../lib/serviceTypes'
 
@@ -152,11 +152,11 @@ export function ServiceSummaryChart({ rows, codes, embedded = false }: ServiceSu
       <Button
         variant="outline"
         size="sm"
-        onClick={() => downloadWeeklyChartCsv(chartData, serviceCodes)}
+        onClick={() => void downloadWeeklyChartPdf(chartData, serviceCodes)}
         disabled={empty}
       >
-        <DownloadIcon />
-        Download CSV
+        <FileTextIcon />
+        Download PDF
       </Button>
       <Button
         variant="outline"

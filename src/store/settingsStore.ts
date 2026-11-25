@@ -21,7 +21,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const general = await getGeneralSettings()
       set({ general })
     } catch {
-      /* biarkan fallback ke BRANDING default */
+      /* biarkan nama instansi kosong sampai pengaturan termuat */
     } finally {
       set({ loading: false })
     }

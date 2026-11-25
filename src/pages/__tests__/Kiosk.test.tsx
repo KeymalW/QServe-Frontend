@@ -19,6 +19,25 @@ vi.mock('../../lib/estimatedWaitTime', () => ({
   getEstimatedWaitTime: vi.fn().mockResolvedValue({ estimatedMinutes: 15, waitingCount: 3 }),
 }))
 
+vi.mock('../../services/settings', async () => {
+  const actual = await vi.importActual<typeof import('../../services/settings')>(
+    '../../services/settings',
+  )
+  return {
+    ...actual,
+    getGeneralSettings: vi.fn().mockResolvedValue({
+      institutionName: 'PT Contoh',
+      logoUrl: '',
+    }),
+    getKioskTextSettings: vi.fn().mockResolvedValue({
+      welcomeText: 'Selamat Datang di',
+      subtitleText: 'Silakan pilih layanan yang Anda butuhkan',
+      hintText: 'Sentuh layar untuk mencetak tiket',
+      footerText: 'PT PLN (Persero) · ULP Subang',
+    }),
+  }
+})
+
 function renderKiosk() {
   return render(
     <MemoryRouter>
@@ -32,13 +51,14 @@ describe('Kiosk', () => {
     vi.clearAllMocks()
   })
 
-  it('renders welcome heading', async () => {
+  it('menampilkan sambutan default dan nama instansi dari pengaturan', async () => {
     renderKiosk()
     await waitFor(() => {
-      expect(screen.getByText('Selamat Datang di')).toBeInTheDocument()
+      expect(screen.getByText('Silakan pilih layanan yang Anda butuhkan')).toBeInTheDocument()
     })
-    expect(screen.getByText('ULP Subang')).toBeInTheDocument()
-    expect(screen.getByText('Silakan pilih layanan yang Anda butuhkan')).toBeInTheDocument()
+    expect(screen.getByText('Selamat Datang di')).toBeInTheDocument()
+    expect(screen.getByText('PT Contoh')).toBeInTheDocument()
+    expect(screen.queryByText('QServe')).not.toBeInTheDocument()
   })
 
   it('renders all 3 service buttons', async () => {

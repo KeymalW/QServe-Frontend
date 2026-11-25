@@ -1,33 +1,72 @@
 import type { WeeklyServiceChartRow } from './weeklyCounterChart'
 import { getServiceLabel } from './serviceTypes'
 
-function escapeCsv(value: string) {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
+const PDF_MARGIN = 12
+const PDF_LINE_HEIGHT = 5
 
-  return value
-}
-
-export function downloadTableCsv(
+export async function downloadTablePdf(
   filename: string,
+  title: string,
   headers: string[],
   rows: Array<Array<string | number>>,
+  columnWidths?: number[],
 ) {
-  const lines = [
-    headers.map(escapeCsv).join(','),
-    ...rows.map((row) => row.map((value) => escapeCsv(String(value))).join(',')),
-  ]
+  const { jsPDF } = await import('jspdf')
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const usableWidth = pageWidth - PDF_MARGIN * 2
+  const widths = columnWidths ?? headers.map(() => usableWidth / headers.length)
+  const offsetX = (index: number) =>
+    PDF_MARGIN + widths.slice(0, index).reduce((total, width) => total + width, 0)
 
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  const titleLines = doc.splitTextToSize(title, usableWidth)
+  doc.text(titleLines, PDF_MARGIN, 14)
 
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
+  let y = 14 + titleLines.length * 6 + 2
 
-  URL.revokeObjectURL(url)
+  const drawHeader = () => {
+    doc.setFillColor(241, 245, 249)
+    doc.rect(PDF_MARGIN, y, usableWidth, 8, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(15, 23, 42)
+    headers.forEach((header, index) => {
+      doc.text(doc.splitTextToSize(header, widths[index] - 3)[0], offsetX(index) + 1.5, y + 5.5)
+    })
+    y += 8
+  }
+
+  drawHeader()
+
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(30, 41, 59)
+  doc.setFontSize(8)
+
+  rows.forEach((row) => {
+    const cellLines = row.map((value, index) =>
+      doc.splitTextToSize(String(value), widths[index] - 3),
+    )
+    const rowHeight = Math.max(...cellLines.map((lines) => lines.length)) * PDF_LINE_HEIGHT + 2
+
+    if (y + rowHeight > pageHeight - PDF_MARGIN) {
+      doc.addPage()
+      y = PDF_MARGIN
+      drawHeader()
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(30, 41, 59)
+      doc.setFontSize(8)
+    }
+
+    cellLines.forEach((lines, index) => {
+      doc.text(lines, offsetX(index) + 1.5, y + 4)
+    })
+    y += rowHeight
+  })
+
+  doc.save(filename)
 }
 
 export async function downloadTableExcel(
@@ -47,11 +86,18 @@ function todaySuffix() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function downloadWeeklyChartCsv(rows: WeeklyServiceChartRow[], codes: string[]) {
-  downloadTableCsv(
-    `diagram-layanan-mingguan-${todaySuffix()}.csv`,
-    ['Hari', ...codes.map((code) => getServiceLabel(code)), 'Total'],
+export async function downloadWeeklyChartPdf(rows: WeeklyServiceChartRow[], codes: string[]) {
+  const headers = ['Hari', ...codes.map((code) => getServiceLabel(code)), 'Total']
+  await downloadTablePdf(
+    `diagram-layanan-mingguan-${todaySuffix()}.pdf`,
+    `Distribusi Layanan Mingguan - ${todaySuffix()}`,
+    headers,
     rows.map((row) => [row.label, ...codes.map((code) => (row[code] as number) ?? 0), row.total]),
+    [
+      42,
+      ...codes.map(() => (186 - 42 - 22) / Math.max(codes.length, 1)),
+      22,
+    ],
   )
 }
 
