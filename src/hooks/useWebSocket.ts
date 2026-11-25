@@ -9,6 +9,22 @@ const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:3001/ws'
 const HEARTBEAT_INTERVAL = 30000
 const MAX_RETRIES = 5
 
+function isUsableWebSocketUrl(url: string) {
+  if (!url) return false
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') return false
+    const isSecurePage = typeof window !== 'undefined' && window.location.protocol === 'https:'
+    if (isSecurePage && parsed.protocol === 'ws:') return false
+    const isLocalApp = typeof window !== 'undefined' &&
+      ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    const isLocalSocket = ['localhost', '127.0.0.1'].includes(parsed.hostname)
+    return !isLocalSocket || isLocalApp
+  } catch {
+    return false
+  }
+}
+
 export function useWebSocket(handlers?: {
   onQueueUpdate?: MessageHandler
   onQueueCall?: MessageHandler
@@ -17,6 +33,7 @@ export function useWebSocket(handlers?: {
   onQueueRecall?: MessageHandler
   onServicesUpdate?: MessageHandler
   onStatsUpdate?: MessageHandler
+  onConnectionChange?: (connected: boolean) => void
 }) {
   const wsRef = useRef<WebSocket | null>(null)
   const handlersRef = useRef(handlers)
@@ -29,7 +46,8 @@ export function useWebSocket(handlers?: {
   })
 
   useEffect(() => {
-    if (USE_MOCK_DATA) {
+    if (USE_MOCK_DATA || !isUsableWebSocketUrl(WS_URL)) {
+      handlersRef.current?.onConnectionChange?.(false)
       return
     }
 
@@ -68,6 +86,7 @@ export function useWebSocket(handlers?: {
           return
         }
         retryCountRef.current = 0
+        handlersRef.current?.onConnectionChange?.(true)
         startHeartbeat(socket)
         // Register tenant for server-side isolation
         try {
@@ -131,6 +150,7 @@ export function useWebSocket(handlers?: {
       socket.onclose = () => {
         stopHeartbeat()
         wsRef.current = null
+        handlersRef.current?.onConnectionChange?.(false)
         retryCountRef.current++
         if (!cancelled && retryCountRef.current < MAX_RETRIES) {
           reconnectTimeoutRef.current = setTimeout(connect, 3000)

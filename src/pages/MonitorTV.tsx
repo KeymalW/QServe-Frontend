@@ -61,6 +61,7 @@ export default function MonitorTV() {
   const [videoMuted, setVideoMuted] = useState(true)
   const [videoVolume, setVideoVolume] = useState(0.2)
   const [videoDucking, setVideoDucking] = useState(false)
+  const [wsConnected, setWsConnected] = useState(false)
   const duckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const effectiveVideoVolume = videoDucking
@@ -222,6 +223,7 @@ export default function MonitorTV() {
       // Kartu layanan baru langsung muncul tanpa refresh.
       void fetchServices()
     },
+    onConnectionChange: setWsConnected,
   })
 
   useEffect(() => {
@@ -236,13 +238,13 @@ export default function MonitorTV() {
       refreshTimer = setTimeout(() => setRefreshing(false), 800)
     }
     load()
-    const interval = setInterval(load, 30000)
+    const interval = setInterval(load, wsConnected ? 30000 : 2000)
     return () => {
       cancelled = true
       clearInterval(interval)
       if (refreshTimer) clearTimeout(refreshTimer)
     }
-  }, [fetchAll])
+  }, [fetchAll, wsConnected])
 
   // Jalur polling: umumkan bila muncul panggilan baru yang belum diumumkan
   // lewat WebSocket (WS mati, mock mode, atau event terlewat). Beban awal
